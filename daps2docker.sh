@@ -1,54 +1,90 @@
 #! /bin/sh
 
-# daps2docker 
-# A script which takes a daps build directory, loads it into a DAPS docker container builds it, and returns the directroy with the built docus.
+# daps2docker
+# A script which takes a daps build directory, loads it into a DAPS docker
+# container builds it, and returns the directroy with the built docus.
 
-# Looks if the directory exists
-if [ $# -eq 0 ]
-  then
-    echo "No directory given, exiting."
+outdir=$(mktemp -d -p /tmp daps2docker-XXXXXX)
+mydir=$(pwd $0)
+formats="html pdf"
+valid_formats="bigfile epub html mobi online-docs pdf package-html package-pdf package-src single-html text webhelp"
+
+function error_exit() {
+    # $1 - message string
+    # $2 - error code (optional)
+    echo -e "$1"
+    [[ $2 ]] && exit $2
     exit 1
+}
+
+function app_help() {
+  echo "daps2docker / Build DAPS documentation in a Docker container."
+  echo "Usage:"
+  echo "  (1) $0 [DOC_DIR] [FORMAT]    # Build all DC files in DOC_DIR"
+  echo "  (2) $0 [DC_FILE] [FORMAT]    # Build specific DC file as FORMAT"
+  echo "If FORMAT is omitted, daps2docker will build: $formats."
+  echo "Recognized formats: $valid_formats."
+}
+
+which docker >/dev/null 2>/dev/null
+if [ $? -gt 0 ]
+  then
+    error_exit "Docker is not installed. Install the 'docker' package of your distribution."
 fi
 
-
-
-if [ -d $1 ]
+if [ $# -eq 0 ] || [[ $1 == '--help' ]] || [[ $1 == '-h' ]]
   then
-    echo "Directory found, checking if it has valid daps files."
-    if [ -e $1/DC-* ]
+    app_help
+    exit
+fi
+
+# create absolute path and strip trailing '/' if any
+# (otherwise the ls below will not work)
+dir=$(readlink -f "$1" | sed 's_/$__')
+
+if [ -d "$dir" ]
+  then
+    if [[ $(ls $dir/DC-*) ]]
       then
-	      dc_file=$(ls $1 | grep 'DC-*')
-	      echo "Found a valid daps config called: $dc_file"
+        dc_files=$(ls $dir | grep 'DC-*')
+        echo -e "Building DC file(s): "$(echo -e -n "$dc_files" | tr '\n' ' ')
       else
-        echo "No valid daps config found, exiting gracefully..."
+        error_exit "No DC files found in $dir."
+    fi
+  elif [ -f $dir ] && [[ $(basename $dir | grep '^DC-') ]]
+  then
+    dc_files=$(basename $dir)
+    dir=$(dirname $dir)
+    echo -e "Building DC file: $dc_files"
+  else
+    exit "Directory $dir does not exist."
+fi
+
+shift
+if [[ "$1" ]]
+  then
+    requested_format=$(echo "$1" | sed 's/[^-a-z0-9]//g')
+    if [[ $(echo "$valid_formats" | grep -P "\b$requested_format\b") ]]
+      then
+        formats="$requested_format"
+      else
+        error_exit "Requested format $1 is not supported.\nSupported formats: $valid_formats"
     fi
 fi
+echo "Building formats: $formats"
+formats=$(echo "$formats" | sed 's/ /,/')
 
-# spawn a Daps container
-docker run -d susedoc/ci:openSUSE-42.3 tail -f /dev/null
-
-# check if spawn was successful
-if [ $? -eq 0 ]
+# Find out if we need elevated privileges (very likely, as that is the default)
+if [[ $(getent group docker | grep "\b$(whoami)\b" &>/dev/null) ]]
   then
-    echo "Container successfully spawned, continue.."
+    $mydir/docker_helper.sh '!!no-user-change' "$outdir" "$dir" "$formats" $dc_files
   else
-    echo "Error while spawning Container, exiting..."
+    echo "Your user account is not part of the group 'docker'. Docker needs to be run as root."
+    sudo $mydir/docker_helper.sh $(whoami) "$outdir" "$dir" "$formats" $dc_files
 fi
-
-# first get the name of the container, then get the ID of the Daps container
-docker_id=$(docker ps -aqf "ancestor=susedoc/ci:openSUSE-42.3" | head -1)
-echo "Got Container ID: $docker_id"
-
-# copy the Daps directory to the docker container
-docker cp $1/. $docker_id:/daps_temp
-
-# build HTML and PDF
-docker exec $docker_id daps -d /daps_temp/$dc_file html
-docker exec $docker_id daps -d /daps_temp/$dc_file pdf
-
-# copy the finished product back to the host
-docker cp $docker_id:/daps_temp ~/daps-finished
-
-# stop the Daps container
-docker stop $docker_id
-
+if [[ $(ls $outdir 2>/dev/null) ]]
+  then
+    echo -e "Your documents were copied to: $outdir"
+  else
+    error_exit "Oh no. There are no documents for you."
+fi

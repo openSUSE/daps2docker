@@ -5,7 +5,8 @@
 # container, builds it, and returns the directory with the built documentation.
 
 outdir=$(mktemp -d -p /tmp daps2docker-XXXXXX)
-mydir=$(pwd $0)
+me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
+mydir=$(dirname $me)
 formats="html pdf"
 valid_formats="bigfile epub html mobi online-docs pdf package-html package-pdf package-src single-html text webhelp"
 
@@ -75,7 +76,7 @@ echo "Building formats: $formats"
 formats=$(echo "$formats" | sed 's/ /,/')
 
 # Find out if we need elevated privileges (very likely, as that is the default)
-if [[ $(getent group docker | grep "\b$(whoami)\b" &>/dev/null) ]]
+if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) ]]
   then
     $mydir/docker_helper.sh '!!no-user-change' "$outdir" "$dir" "$formats" $dc_files
   else

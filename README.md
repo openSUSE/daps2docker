@@ -19,8 +19,8 @@ hassles of setting up a documentation toolchain.
 On the first run, Docker needs to download a container with an installation
 of DAPS on openSUSE Leap. This means, you need:
 
-* Make sure you have at least 1 GB of space on your root partition left
-* Make sure you internet access
+* Make sure you have at least 1.5 GB of space on your root partition left
+* Make sure you have internet access
 
 ### Running
 
@@ -29,8 +29,8 @@ of DAPS on openSUSE Leap. This means, you need:
   Check which `DC-` files you want to build.
 3. Run the script from the cloned script repository. You can choose between two
   modes:
-  * To build all DC files: `./daps2docker.sh /PATH/TO/DOC-DIR`
-  * To build a single DC file: `./daps2docker.sh /PATH/TO/DC-FILE`
+    * To build all DC files: `./daps2docker.sh /PATH/TO/DOC-DIR`
+    * To build a single DC file: `./daps2docker.sh /PATH/TO/DC-FILE`
   By default, the script will create PDF and HTML output, but there are
   more formats available: See the output of `./daps2docker.sh --help`.
 4. You may have to enter the root password to allow starting the Docker service

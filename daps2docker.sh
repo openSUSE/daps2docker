@@ -83,9 +83,10 @@ if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) ]]
     echo "Your user account is not part of the group 'docker'. Docker needs to be run as root."
     sudo $mydir/docker_helper.sh $(whoami) "$outdir" "$dir" "$formats" $dc_files
 fi
-if [[ $(ls $outdir 2>/dev/null) ]]
+if [[ -d "$outdir" ]] && [[ -f "$outdir/filelist" ]]
   then
-    echo -e "Your documents were copied to: $outdir"
+    echo -e "Your output documents are:"
+    cat "$outdir/filelist"
   else
     error_exit "Oh no. There are no documents for you."
 fi

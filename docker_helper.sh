@@ -106,18 +106,31 @@ for dep in daps daps-devel libxslt-tools libxml2-tools xmlgraphics-fop docbook-x
 done
 
 # build HTML and PDF
+filelist=''
 for dc_file in $dc_files
   do
-    for format in $formats
-      do
-        [[ $format == 'single-html' ]] && format='html --single'
-        docker exec $docker_id daps -d $temp_dir/$dc_file $format
-    done
+    echo "Building $dc_file"
+    validation=$(docker exec $docker_id daps -d $temp_dir/$dc_file validate 2>&1)
+    if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
+      then
+        echo -e "$validation"
+        error_exit "$dc_file has validation issues and cannot be built."
+      else
+        for format in $formats
+          do
+            [[ $format == 'single-html' ]] && format='html --single'
+            filelist+=$(docker exec $docker_id daps -d $temp_dir/$dc_file $format)' '
+        done
+    fi
 done
 
 # copy the finished product back to the host
 mkdir -p $outdir
 docker cp $docker_id:$temp_dir/build/. $outdir
+if [[ "$filelist" ]]
+  then
+    echo "$filelist" | tr ' ' '\n' | sed -r -e "s#^$temp_dir/build#$outdir#" >> $outdir/filelist
+fi
 [[ user_change -eq 1 ]] && chown -R $user $outdir
 
 # stop the Daps container

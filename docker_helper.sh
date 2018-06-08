@@ -48,7 +48,7 @@ if [ $service_status -eq 3 ]
   then
     if [[ ! $(whoami) == 'root' ]]
       then
-        "Docker service is not running. Give permission to start it."
+        echo "Docker service is not running. Give permission to start it."
         sudo systemctl start docker.service
       else
         systemctl start docker.service
@@ -57,6 +57,8 @@ if [ $service_status -eq 3 ]
     then
     error_exit "Issue with Docker service. Check 'systemctl status docker' yourself."
 fi
+
+docker pull susedoc/ci:openSUSE-42.3
 
 # spawn a Daps container
 docker run -d susedoc/ci:openSUSE-42.3 tail -f /dev/null

@@ -92,10 +92,16 @@ for dc in $dir/DC-*
 done
 
 echo "Package versions in container:"
-for dep in daps libxslt-tools libxml2-tools xmlgraphics-fop docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets hpe-xsl-stylesheets geekodoc novdoc
+for dep in daps daps-devel libxslt-tools libxml2-tools xmlgraphics-fop docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets hpe-xsl-stylesheets geekodoc novdoc
   do
+    rpmstring=$(docker exec $docker_id rpm -qi $dep)
     echo -n '  - '
-    docker exec $docker_id rpm -qi $dep | head -2 | awk '{print $3;}' | tr '\n' ' '
+    if [[ $(echo -e "$rpmstring" | head -1 | grep 'not installed') ]]
+      then
+        echo -n "$rpmstring"
+      else
+        echo "$rpmstring" | head -2 | awk '{print $3;}' | tr '\n' ' '
+    fi
     echo ''
 done
 
@@ -110,7 +116,7 @@ for dc_file in $dc_files
 done
 
 # copy the finished product back to the host
-mkdir -p $outdir 
+mkdir -p $outdir
 docker cp $docker_id:$temp_dir/build/. $outdir
 [[ user_change -eq 1 ]] && chown -R $user $outdir
 

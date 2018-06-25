@@ -110,12 +110,27 @@ filelist=''
 for dc_file in $dc_files
   do
     echo "Building $dc_file"
+
+    # This should be in there anyway, we just write it again just in case the
+    # container author has forgotten it.
+    echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > /tmp/d2d-dapsrc-geekodoc
+    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > /tmp/d2d-dapsrc-db51
+    docker cp /tmp/d2d-dapsrc-geekodoc $docker_id:/root/.config/daps/dapsrc
     validation=$(docker exec $docker_id daps -d $temp_dir/$dc_file validate 2>&1)
+    validation_attempts=1
+    if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
+      then
+        # Try again but with the DocBook upstream
+        docker cp /tmp/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
+        validation=$(docker exec $docker_id daps -d $temp_dir/$dc_file validate 2>&1)
+        validation_attempts=2
+    fi
     if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
       then
         echo -e "$validation"
         error_exit "$dc_file has validation issues and cannot be built."
       else
+        [[ $validation_attempts -gt 1 ]] && echo "$dc_file has validation issues when built with GeekoDoc. It validates with DocBook though. Results might not look ideal."
         for format in $formats
           do
             [[ $format == 'single-html' ]] && format='html --single'

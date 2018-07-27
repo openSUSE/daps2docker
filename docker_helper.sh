@@ -8,7 +8,10 @@
 # $2 - input dir
 # $3 - output dir
 # $4 - formats to build, comma-separated
-# $5 .. $x - DC files to build
+# $5 - Docker container to use
+# $6 - autoupdate Docker container? 1 (yes, default), 0 (no)
+# $7 .. $x - DC files to build
+
 
 function error_exit() {
     # $1 - message string
@@ -37,6 +40,12 @@ shift
 formats=$(echo "$1" | sed 's/,/ /g')
 shift
 
+containername=$1
+shift
+
+autoupdate=$1
+shift
+
 dc_files=$*
 
 # PAGER=cat means we avoid calling "less" here which would make it interactive
@@ -58,10 +67,18 @@ if [ $service_status -eq 3 ]
     error_exit "Issue with Docker service. Check 'systemctl status docker' yourself."
 fi
 
-docker pull susedoc/ci:openSUSE-42.3
+[[ $autoupdate -eq 1 ]] && docker pull $containername
+
+# If the container does not exist, this command will still output "[]", hence
+# the sed. NB: We need to do this after the pull, as the pull might just
+# produce the necessary image.
+if [[ ! $(docker image inspect $containername 2>/dev/null | sed 's/\[\]//') ]]
+  then
+    error_exit "Container image $containername does not exist."
+fi
 
 # spawn a Daps container
-docker run -d susedoc/ci:openSUSE-42.3 tail -f /dev/null
+docker run -d "$containername" tail -f /dev/null
 
 # check if spawn was successful
 if [ ! $? -eq 0 ]
@@ -70,7 +87,7 @@ if [ ! $? -eq 0 ]
 fi
 
 # first get the name of the container, then get the ID of the Daps container
-docker_id=$(docker ps -aqf "ancestor=susedoc/ci:openSUSE-42.3" | head -1)
+docker_id=$(docker ps -aqf "ancestor=$containername" | head -1)
 echo "Got Container ID: $docker_id"
 
 # copy the Daps directory to the docker container

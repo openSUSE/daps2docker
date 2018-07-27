@@ -10,7 +10,7 @@ mydir=$(dirname $me)
 formats="html pdf"
 valid_formats="bigfile epub html mobi online-docs pdf package-html package-pdf package-src single-html text webhelp"
 
-function error_exit() {
+error_exit() {
     # $1 - message string
     # $2 - error code (optional)
     echo -e "$1"
@@ -18,13 +18,26 @@ function error_exit() {
     exit 1
 }
 
-function app_help() {
+app_help() {
   echo "daps2docker / Build DAPS documentation in a Docker container."
   echo "Usage:"
-  echo "  (1) $0 [DOC_DIR] [FORMAT]    # Build all DC files in DOC_DIR"
-  echo "  (2) $0 [DC_FILE] [FORMAT]    # Build specific DC file as FORMAT"
+  echo "  (1) $0 [DOC_DIR] [FORMAT]"
+  echo "      # Build all DC files in DOC_DIR"
+  echo "  (2) $0 [DC_FILE] [FORMAT]"
+  echo "      # Build specific DC file as FORMAT"
   echo "If FORMAT is omitted, daps2docker will build: $formats."
   echo "Recognized formats: $valid_formats."
+  if [[ "$1" == "extended" ]]
+    then
+      echo ""
+      echo "Extended options:"
+      echo "  D2D_IMAGE=[DOCKER_IMAGE_ID] $0 [...]"
+      echo "      # Use the Docker image with the given ID instead of the default."
+      echo "      # Note that the specified image must be available locally already."
+  else
+      echo ""
+      echo "More? Use $0 --help-extended"
+  fi
 }
 
 which docker >/dev/null 2>/dev/null
@@ -37,6 +50,22 @@ if [ $# -eq 0 ] || [[ $1 == '--help' ]] || [[ $1 == '-h' ]]
   then
     app_help
     exit
+elif [[ $1 == '--help-extended' ]]
+  then
+    app_help extended
+    exit
+fi
+
+autoupdate=1
+containername=susedoc/ci:openSUSE-42.3
+if [[ ! -z "$D2D_IMAGE" ]] && [[ ! $(echo "$D2D_IMAGE" | sed -r 's/[0-9a-f]//g') ]]
+  then
+    autoupdate=0
+    containername=$D2D_IMAGE
+    echo "Using custom container image ID $containername."
+elif [[ ! -z "$D2D_IMAGE" ]]
+  then
+    error_exit "$D2D_IMAGE is not a plausible container image ID."
 fi
 
 # create absolute path and strip trailing '/' if any
@@ -78,10 +107,10 @@ formats=$(echo "$formats" | sed 's/ /,/')
 # Find out if we need elevated privileges (very likely, as that is the default)
 if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) ]]
   then
-    $mydir/docker_helper.sh '!!no-user-change' "$outdir" "$dir" "$formats" $dc_files
+    $mydir/docker_helper.sh '!!no-user-change' "$outdir" "$dir" "$formats" "$containername" "$autoupdate" $dc_files
   else
     echo "Your user account is not part of the group 'docker'. Docker needs to be run as root."
-    sudo $mydir/docker_helper.sh $(whoami) "$outdir" "$dir" "$formats" $dc_files
+    sudo $mydir/docker_helper.sh $(whoami) "$outdir" "$dir" "$formats" "$containername" "$autoupdate" $dc_files
 fi
 if [[ -d "$outdir" ]] && [[ -f "$outdir/filelist" ]]
   then

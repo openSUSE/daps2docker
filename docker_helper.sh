@@ -13,12 +13,33 @@
 # $7 .. $x - DC files to build
 
 
-function error_exit() {
+error_exit() {
     # $1 - message string
     # $2 - error code (optional)
     echo "$1"
     [[ $2 ]] && exit $2
     exit 1
+}
+
+resolve_links() {
+    dir="$1"
+    glob="$2"
+    docker_id="$3"
+    docker_location="$4"
+    links=$(find "$dir/$glob" -type l)
+    if [[ "$links" ]]
+      then
+        len_path=$(echo "$dir/" | wc -c)
+        for link in $links
+          do
+            real_file=$(readlink -e "$link")
+            stripped_filename=$(echo "$link" | cut -b${len_path}-)
+            # First delete those files, otherwise these will remain symlinks
+            # (dangling ones at that)
+            docker exec $docker_id rm "$docker_location/$stripped_filename"
+            docker cp "$real_file" "$docker_id:$docker_location/$stripped_filename"
+        done
+    fi
 }
 
 user=$(whoami)
@@ -102,10 +123,13 @@ docker exec $docker_id mkdir $temp_dir 2>/dev/null
 for subdir in images adoc xml
   do
     [[ -d $dir/$subdir ]] && docker cp $dir/$subdir $docker_id:$temp_dir
+    resolve_links "$dir" "$subdir" "$docker_id" "$temp_dir"
 done
 for dc in $dir/DC-*
   do
     [[ -f $dc ]] && docker cp $dc $docker_id:$temp_dir
+    # $dc includes the full path... hence, a $(basename)!
+    resolve_links "$dir" $(basename "$dc") "$docker_id" "$temp_dir"
 done
 
 echo "Package versions in container:"

@@ -13,7 +13,7 @@ valid_formats="bigfile epub html online-docs pdf package-html package-pdf packag
 error_exit() {
     # $1 - message string
     # $2 - error code (optional)
-    echo -e "$1"
+    echo -e "(Exiting d2d) $1"
     [[ $2 ]] && exit $2
     exit 1
 }

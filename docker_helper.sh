@@ -16,7 +16,8 @@
 error_exit() {
     # $1 - message string
     # $2 - error code (optional)
-    echo "$1"
+    echo -e "(Exiting helper) $1"
+    stop_docker
     [[ $2 ]] && exit $2
     exit 1
 }
@@ -39,6 +40,17 @@ resolve_links() {
             docker exec $docker_id rm "$docker_location/$stripped_filename"
             docker cp "$real_file" "$docker_id:$docker_location/$stripped_filename"
         done
+    fi
+}
+
+stop_docker() {
+    if [[ "$docker_id" ]]
+      then
+        # stop the Daps container
+        docker stop $docker_id >/dev/null 2>/dev/null
+
+        # we won't ever use the same container again, so remove the container's files
+        docker rm $docker_id >/dev/null 2>/dev/null
     fi
 }
 
@@ -175,7 +187,13 @@ for dc_file in $dc_files
         for format in $formats
           do
             [[ $format == 'single-html' ]] && format='html --single'
-            filelist+=$(docker exec $docker_id daps -d $temp_dir/$dc_file $format)' '
+            output=$(docker exec $docker_id daps -d $temp_dir/$dc_file $format)
+            if [[ $(echo -e "$output" | grep "Stop\.$") ]]
+              then
+                error_exit "For $dc_file, the output format $format cannot be built. Exact message:\n\n$output\n"
+            else
+                filelist+="$output "
+            fi
         done
     fi
 done
@@ -189,8 +207,4 @@ if [[ "$filelist" ]]
 fi
 [[ user_change -eq 1 ]] && chown -R $user $outdir
 
-# stop the Daps container
-docker stop $docker_id >/dev/null 2>/dev/null
-
-# we won't ever use the same container again, so remove the container's files
-docker rm $docker_id >/dev/null 2>/dev/null
+stop_docker

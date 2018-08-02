@@ -111,7 +111,7 @@ if [[ ! $(docker image inspect $containername 2>/dev/null | sed 's/\[\]//') ]]
 fi
 
 # spawn a Daps container
-docker run -d "$containername" tail -f /dev/null
+docker run -d "$containername" tail -f /dev/null >/dev/null
 
 # check if spawn was successful
 if [ ! $? -eq 0 ]
@@ -121,7 +121,7 @@ fi
 
 # first get the name of the container, then get the ID of the Daps container
 docker_id=$(docker ps -aqf "ancestor=$containername" | head -1)
-echo "Got Container ID: $docker_id"
+echo "Container ID: $docker_id"
 
 # copy the Daps directory to the docker container
 temp_dir=/daps_temp
@@ -134,14 +134,20 @@ docker exec $docker_id mkdir $temp_dir 2>/dev/null
 # the host and then having additional stuff there is ... confusing)
 for subdir in images adoc xml
   do
-    [[ -d $dir/$subdir ]] && docker cp $dir/$subdir $docker_id:$temp_dir
-    resolve_links "$dir" "$subdir" "$docker_id" "$temp_dir"
+    if [[ -d $dir/$subdir ]]
+      then
+        docker cp $dir/$subdir $docker_id:$temp_dir
+        resolve_links "$dir" "$subdir" "$docker_id" "$temp_dir"
+    fi
 done
 for dc in $dir/DC-*
   do
-    [[ -f $dc ]] && docker cp $dc $docker_id:$temp_dir
-    # $dc includes the full path... hence, a $(basename)!
-    resolve_links "$dir" $(basename "$dc") "$docker_id" "$temp_dir"
+    if [[ -f $dc ]]
+      then
+        docker cp $dc $docker_id:$temp_dir
+        # $dc includes the full path... hence, a $(basename)!
+        resolve_links "$dir" $(basename "$dc") "$docker_id" "$temp_dir"
+    fi
 done
 
 echo "Package versions in container:"

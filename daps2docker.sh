@@ -8,7 +8,7 @@ outdir=$(mktemp -d -p /tmp daps2docker-XXXXXX)
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
 formats="html pdf"
-valid_formats="bigfile epub html mobi online-docs pdf package-html package-pdf package-src single-html text webhelp"
+valid_formats="bigfile epub html online-docs pdf package-html package-pdf package-src single-html webhelp"
 
 error_exit() {
     # $1 - message string

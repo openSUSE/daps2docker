@@ -106,6 +106,25 @@ fi
 echo "Building formats: $formats"
 formats=$(echo "$formats" | sed 's/ /,/')
 
+# PAGER=cat means we avoid calling "less" here which would make it interactive
+# and that is the last thing we want.
+# FIXME: I am sure there is a better way to do this.
+PAGER=cat systemctl status docker.service >/dev/null 2>/dev/null
+service_status=$?
+if [ $service_status -eq 3 ]
+  then
+    if [[ ! $(whoami) == 'root' ]]
+      then
+        echo "Docker service is not running. Give permission to start it."
+        sudo systemctl start docker.service
+      else
+        systemctl start docker.service
+    fi
+  elif [ $service_status -gt 0 ]
+    then
+    error_exit "Issue with Docker service. Check 'systemctl status docker' yourself."
+fi
+
 # Find out if we need elevated privileges (very likely, as that is the default)
 if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) ]]
   then

@@ -206,25 +206,6 @@ for dcfile in $dcfiles
     [[ $(echo "$dcfile" | sed -r 's/^(DC-[-_.a-zA-Z0-9]+|(xml|adoc)\/[-_.a-zA-Z0-9]+\.\2)//') ]] && error_exit "$dcfile does not appear to be a valid input file."
 done
 
-# PAGER=cat means we avoid calling "less" here which would make it interactive
-# and that is the last thing we want.
-# FIXME: I am sure there is a better way to do this.
-PAGER=cat systemctl status docker.service >/dev/null 2>/dev/null
-service_status=$?
-if [ $service_status -eq 3 ]
-  then
-    if [[ ! $(whoami) == 'root' ]]
-      then
-        echo "Docker service is not running. Give permission to start it."
-        sudo systemctl start docker.service
-      else
-        systemctl start docker.service
-    fi
-  elif [ $service_status -gt 0 ]
-    then
-    error_exit "Issue with Docker service. Check 'systemctl status docker' yourself."
-fi
-
 [[ $autoupdate -eq 1 ]] && docker pull $containername
 
 # If the container does not exist, this command will still output "[]", hence

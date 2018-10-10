@@ -17,7 +17,7 @@ app_help() {
   echo ""
   echo "Parameters (* mandatory):"
   echo "  -i=INPUT_PATH         # *path to input directory"
-  echo "  -o=OUTPUT PATH        # *path to output directory (directory should be empty)"
+  echo "  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)"
   echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
   echo "$valid_formats" | fold -w 54 -s | sed 's/^/                          /'
   echo "  -v=0/1                # validate before building? default: 1 (on)"
@@ -155,7 +155,7 @@ for i in "$@"
         dcfiles+="${i#*=} "
       ;;
       *)
-        unknown+="$i\n"
+        unknown+="  $i\n"
       ;;
     esac
 done

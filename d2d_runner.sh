@@ -167,7 +167,7 @@ done
 
 
 [[ ! $dir ]] && error_exit "No input directory set."
-[[ -f $dir ]] && error_exit "Output directory \"$outdir\" already exists but is a regular file."
+[[ -f $dir ]] && error_exit "Input directory \"$dir\" already exists but is a regular file."
 [[ ! -d $dir ]] && error_exit "Input directory \"$dir\" does not exist."
 [[ $(echo "$dir" | sed -r 's=^(/[-_.@a-zA-Z0-9]+)+/?$==') ]] && error_exit "Input directory \"$dir\" is a nonconformist path."
 

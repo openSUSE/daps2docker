@@ -21,7 +21,7 @@ BUILD_DIR     := build
 CBUILD_DIR    := $(CDIR)/$(BUILD_DIR)
 
 # project version number
-VERSION       := 0.5
+VERSION       := 0.6
 
 .PHONY: all dist clean
 all: dist

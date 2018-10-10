@@ -217,7 +217,7 @@ if [[ ! $(docker image inspect $containername 2>/dev/null | sed 's/\[\]//') ]]
 fi
 
 # spawn a Daps container
-docker run -d "$containername" tail -f /dev/null >/dev/null
+docker_id=$(docker run -d "$containername" tail -f /dev/null)
 
 # check if spawn was successful
 if [ ! $? -eq 0 ]
@@ -226,7 +226,6 @@ if [ ! $? -eq 0 ]
 fi
 
 # first get the name of the container, then get the ID of the Daps container
-docker_id=$(docker ps -aqf "ancestor=$containername" | head -1)
 echo "Container ID: $docker_id"
 
 # copy the Daps directory to the docker container

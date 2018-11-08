@@ -7,10 +7,11 @@ hassles of setting up a documentation toolchain.
 ## Installation
 
 1. Install the Docker package for your distribution. For example:
-  * OpenSUSE/SLES: `sudo zypper install docker`
-  * Fedora/RHEL: `sudo dnf install docker`
-  * Ubuntu/Debian: `sudo apt install docker.io`
-2. Clone this repository: `git clone https://github.com/openSUSE/daps2docker`
+
+   * OpenSUSE/SLES: `sudo zypper install docker`
+   * Fedora/RHEL: `sudo dnf install docker`
+   * Ubuntu/Debian: `sudo apt install docker.io`
+1. Clone this repository: `git clone https://github.com/openSUSE/daps2docker`
 
 ## Usage
 

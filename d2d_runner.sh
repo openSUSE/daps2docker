@@ -27,6 +27,7 @@ app_help() {
   echo "  -u=0/1                # update container image? default: 1 (on)"
   echo "  -s=USER_NAME          # chown output files to this user"
   echo "  -n=0/1                # show extra information? default: 1 (on)"
+  echo "  -b=0/1                # create bigfile additionally? default: 0 (off)"
   echo "  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc"
   echo "                        # DC/XML/AsciiDoc files to build from"
 }
@@ -107,6 +108,8 @@ dapsparameterfile=
 
 autovalidate=1
 
+createbigfile=0
+
 info=1
 
 dcfiles=
@@ -147,6 +150,9 @@ for i in "$@"
       ;;
       -v=*|--auto-validate=*)
         validation="${i#*=}"
+      ;;
+      -b=*|--create-bigfile=*)
+        createbigfile="${i#*=}"
       ;;
       -n=*|--info=*)
         info="${i#*=}"
@@ -190,9 +196,11 @@ done
 
 ([[ $dapsparameterfile ]] && [[ ! -f $dapsparameterfile ]]) && error_exit "DAPS parameter file \"$dapsparameterfile\" does not exist."
 
-[[ ! $(is_bool "$autovalidate") ]] && error_exit "Automatic validation parameter ($autovalidate) is not set to 0 or 1."
+[[ ! $(is_bool "$autovalidate") ]] && error_exit "Automatic validation parameter ($autovalidate) is not 0 or 1."
 
-[[ ! $(is_bool "$info") ]] && error_exit "Extra information parameter ($autovalidate) is not set to 0 or 1."
+[[ ! $(is_bool "$createbigfile") ]] && error_exit "Bigfile creation parameter ($createbigfile) is not 0 or 1."
+
+[[ ! $(is_bool "$info") ]] && error_exit "Extra information parameter ($autovalidate) is not 0 or 1."
 
 if [[ ! $dcfiles ]]
   then
@@ -318,6 +326,10 @@ for dc_file in $dcfiles
               then
                 error_exit "For $dc_file, the output format $format cannot be built. Exact message:\n\n$output\n"
             else
+                # Let's just assume that we can always build a bigfile if we can
+                # build regular output.
+                [[ $createbigfile -eq 1 ]] && output+=" "$(docker exec $docker_id daps $dm $temp_dir/$dc_file bigfile)
+
                 filelist+="$output "
             fi
         done

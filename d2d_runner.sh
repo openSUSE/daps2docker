@@ -188,7 +188,7 @@ for format in $formats
     [[ ! $(echo " $valid_formats " | grep -P " $format ") ]] && error_exit "Requested format $format is not supported.\nSupported formats: $valid_formats"
 done
 
-[[ $(echo "$containername" | sed -r 's=^([-_.a-zA-Z0-9]+/[-_.a-zA-Z0-9]+:[-_.a-zA-Z0-9]+|[0-9a-f]+)==') ]] && error_exit "Container name \"$dir\" seems invalid."
+[[ $(echo "$containername" | sed -r 's=^([-_.a-zA-Z0-9]+/[-_.a-zA-Z0-9]+:[-_.a-zA-Z0-9]+|[0-9a-f]+)==') ]] && error_exit "Container name \"$containername\" seems invalid."
 
 [[ ! $(is_bool "$autoupdate") ]] && error_exit "Automatic container update parameter ($autoupdate) is not set to 0 or 1."
 

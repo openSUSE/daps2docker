@@ -38,3 +38,10 @@ of DAPS on openSUSE Leap. This means, you need:
 
 When it is done, the script will tell you where it copied the output documents.
 Now you just need to take a look!
+
+### References
+
+* For the container image itself, see
+  [Docker Hub](https://hub.docker.com/r/susedoc/ci).
+* For the container definition, see
+  [the doc-ci repository](https://github.com/openSUSE/doc-ci/tree/develop/build-docker-ci).

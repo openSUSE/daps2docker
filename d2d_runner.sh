@@ -214,6 +214,8 @@ for dcfile in $dcfiles
     [[ $(echo "$dcfile" | sed -r 's/^(DC-[-_.a-zA-Z0-9]+|(xml|adoc)\/[-_.a-zA-Z0-9]+\.\2)//') ]] && error_exit "$dcfile does not appear to be a valid input file."
 done
 
+localtempdir=$(mktemp -d -p /tmp d2drunner-XXXXXXXX)
+
 [[ $autoupdate -eq 1 ]] && docker pull $containername
 
 # If the container does not exist, this command will still output "[]", hence
@@ -290,9 +292,9 @@ for dc_file in $dcfiles
 
     # This should be in there anyway, we just write it again just in case the
     # container author has forgotten it.
-    echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > /tmp/d2d-dapsrc-geekodoc
-    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > /tmp/d2d-dapsrc-db51
-    docker cp /tmp/d2d-dapsrc-geekodoc $docker_id:/root/.config/daps/dapsrc
+    echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
+    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
+    docker cp $localtempdir/d2d-dapsrc-geekodoc $docker_id:/root/.config/daps/dapsrc
     validation=$(docker exec $docker_id daps $dm $temp_dir/$dc_file validate 2>&1)
     validation_attempts=1
     if [[ "$autovalidate" -ne 0 ]]
@@ -300,14 +302,14 @@ for dc_file in $dcfiles
         if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
           then
             # Try again but with the DocBook upstream
-            docker cp /tmp/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
+            docker cp $localtempdir/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
             validation=$(docker exec $docker_id daps $dm $temp_dir/$dc_file validate 2>&1)
             validation_attempts=2
         fi
       else
         # Make sure we are not using GeekoDoc in this case, to provoke lowest
         # number of build failures
-        docker cp /tmp/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
+        docker cp $localtempdir/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
     fi
     if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
       then
@@ -345,4 +347,6 @@ if [[ "$filelist" ]]
 fi
 [[ user_change -eq 1 ]] && chown -R $user $outdir
 
+# clean up
+rm -rf $localtempdir 2>/dev/null
 stop_docker

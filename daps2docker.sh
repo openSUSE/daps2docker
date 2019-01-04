@@ -9,7 +9,7 @@ mydir=$(dirname $me)
 
 . $mydir/defaults
 
-outdir=$(mktemp -d -p /tmp daps2docker-XXXXXX)
+outdir=$(mktemp -d -p /tmp daps2docker-XXXXXXXX)
 
 
 error_exit() {

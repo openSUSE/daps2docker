@@ -59,7 +59,6 @@ elif [[ $1 == '--help-extended' ]]
 fi
 
 autoupdate=1
-containername=susedoc/ci:openSUSE-42.3
 if [[ ! -z "$D2D_IMAGE" ]] && [[ ! $(echo "$D2D_IMAGE" | sed -r 's/[0-9a-f]//g') ]]
   then
     autoupdate=0

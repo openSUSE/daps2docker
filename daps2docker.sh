@@ -1,6 +1,8 @@
 #! /bin/bash
 
 # daps2docker
+# Author: Fabian Baumanis
+#
 # A script which takes a DAPS build directory, loads it into a DAPS docker
 # container, builds it, and returns the directory with the built documentation.
 

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-valid_formats="bigfile epub html online-docs pdf package-html package-pdf package-src single-html webhelp"
+valid_formats="bigfile epub html online-docs pdf package-html package-pdf package-src single-html text webhelp"
 formats="html,pdf"
 
 containername="susedoc/ci:openSUSE-42.3"

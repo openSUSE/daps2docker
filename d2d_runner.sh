@@ -338,6 +338,12 @@ for dc_file in $dcfiles
     fi
 done
 
+# Remove .images and .profiled, because .profiled may contain symlinks
+# outside of the path that we copy in the next step which can cause errors
+# and we don't really need those directories.
+# However, we do not(!) remove .tmp because it may contain bigfiles.
+docker exec $docker_id rm -rf $temp_dir/build/{.images,.profiled}
+
 # copy the finished product back to the host
 mkdir -p $outdir
 docker cp $docker_id:$temp_dir/build/. $outdir

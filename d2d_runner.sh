@@ -47,27 +47,6 @@ is_bool() {
     [[ "$1" == 1 ]] && echo "isbool"
 }
 
-resolve_links() {
-    dir="$1"
-    glob="$2"
-    docker_id="$3"
-    docker_location="$4"
-    links=$(find "$dir/$glob" -type l)
-    if [[ "$links" ]]
-      then
-        len_path=$(echo "$dir/" | wc -c)
-        for link in $links
-          do
-            real_file=$(readlink -e "$link")
-            stripped_filename=$(echo "$link" | cut -b${len_path}-)
-            # First delete those files, otherwise these will remain symlinks
-            # (dangling ones at that)
-            docker exec $docker_id rm "$docker_location/$stripped_filename"
-            docker cp "$real_file" "$docker_id:$docker_location/$stripped_filename"
-        done
-    fi
-}
-
 build_xsltparameters() {
     # $1 - file to work from
     paramlist=
@@ -76,6 +55,17 @@ build_xsltparameters() {
         paramlist+=" --stringparam='"$param"'"
     done
     echo "$paramlist"
+}
+
+clean_temp() {
+    # Some things need to be deleted within Docker, because Docker writes as
+    # root, but we may not have root permissions.
+    if [[ "$docker_id" ]]
+      then
+        docker exec $docker_id rm -rf $containersourcetempdir/build
+        docker exec $docker_id rm -rf $containersourcetempdir/images/generated
+    fi
+    rm -rf $localtempdir 2>/dev/null
 }
 
 stop_docker() {
@@ -215,6 +205,11 @@ for dcfile in $dcfiles
 done
 
 localtempdir=$(mktemp -d -p /tmp d2drunner-XXXXXXXX)
+localsourcetempdir="$localtempdir/source"
+mkdir "$localsourcetempdir"
+
+containertempdir=/daps_temp-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c10)
+containersourcetempdir="$containertempdir/source"
 
 [[ $autoupdate -eq 1 ]] && docker pull $containername
 
@@ -223,45 +218,52 @@ localtempdir=$(mktemp -d -p /tmp d2drunner-XXXXXXXX)
 # produce the necessary image.
 if [[ ! $(docker image inspect $containername 2>/dev/null | sed 's/\[\]//') ]]
   then
+    clean_temp
     error_exit "Container image $containername does not exist."
 fi
 
 # spawn a Daps container
-docker_id=$(docker run -d "$containername" tail -f /dev/null)
+docker_id=$( \
+  docker run \
+    --detach \
+    --mount type=bind,source="$localtempdir",target="$containertempdir" \
+    "$containername" \
+    tail -f /dev/null \
+  )
 
 # check if spawn was successful
 if [ ! $? -eq 0 ]
   then
+    clean_temp
     error_exit "Error spawning container."
 fi
 
 # first get the name of the container, then get the ID of the Daps container
 echo "Container ID: $docker_id"
 
-# copy the Daps directory to the docker container
-temp_dir=/daps_temp
-docker exec $docker_id rm -rf $temp_dir 2>/dev/null
-docker exec $docker_id mkdir $temp_dir 2>/dev/null
 
 # only copy the stuff we want -- not sure whether that saves any time, but it
 # avoids copying the build dir (which avoids confusing users if there is
 # something in it already: after the build we're copying the build dir back to
 # the host and then having additional stuff there is ... confusing)
-for subdir in images adoc xml
+
+for subdir in "images/src" "adoc" "xml"
   do
-    if [[ -d $dir/$subdir ]]
+    if [[ -d "$dir/$subdir" ]]
       then
-        docker cp $dir/$subdir $docker_id:$temp_dir
-        resolve_links "$dir" "$subdir" "$docker_id" "$temp_dir"
+        mkdir -p "$localsourcetempdir/$subdir"
+        # NB: we're resolving symlinks here which is important especially for
+        # translated documents
+        cp -rL "$dir/$subdir/." "$localsourcetempdir/$subdir"
     fi
 done
-for dc in $dir/DC-*
+for dc in "$dir"/DC-*
   do
-    if [[ -f $dc ]]
+    if [[ -f "$dc" ]]
       then
-        docker cp $dc $docker_id:$temp_dir
-        # $dc includes the full path... hence, a $(basename)!
-        resolve_links "$dir" $(basename "$dc") "$docker_id" "$temp_dir"
+        # NB: we're resolving symlinks here which is important especially for
+        # translated documents
+        cp -L "$dc" "$localsourcetempdir"
     fi
 done
 
@@ -295,7 +297,7 @@ for dc_file in $dcfiles
     echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
     echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
     docker cp $localtempdir/d2d-dapsrc-geekodoc $docker_id:/root/.config/daps/dapsrc
-    validation=$(docker exec $docker_id daps $dm $temp_dir/$dc_file validate 2>&1)
+    validation=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
     validation_attempts=1
     if [[ "$autovalidate" -ne 0 ]]
       then
@@ -303,7 +305,7 @@ for dc_file in $dcfiles
           then
             # Try again but with the DocBook upstream
             docker cp $localtempdir/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
-            validation=$(docker exec $docker_id daps $dm $temp_dir/$dc_file validate 2>&1)
+            validation=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
             validation_attempts=2
         fi
       else
@@ -314,6 +316,7 @@ for dc_file in $dcfiles
     if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
       then
         echo -e "$validation"
+        clean_temp
         error_exit "$dc_file has validation issues and cannot be built."
       else
         [[ $validation_attempts -gt 1 ]] && echo "$dc_file has validation issues when built with GeekoDoc. It validates with DocBook though. Results might not look ideal."
@@ -323,14 +326,15 @@ for dc_file in $dcfiles
             dapsparameters=
             [[ $dapsparameterfile ]] && dapsparameters+=$(cat $dapsparameterfile)
             [[ $xsltparameterfile ]] && dapsparameters+=$(build_xsltparameters $xsltparameterfile)
-            output=$(docker exec $docker_id daps $dm $temp_dir/$dc_file $format $dapsparameters)
+            output=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters)
             if [[ $(echo -e "$output" | grep "Stop\.$") ]]
               then
+                clean_temp
                 error_exit "For $dc_file, the output format $format cannot be built. Exact message:\n\n$output\n"
             else
                 # Let's just assume that we can always build a bigfile if we can
                 # build regular output.
-                [[ $createbigfile -eq 1 ]] && output+=" "$(docker exec $docker_id daps $dm $temp_dir/$dc_file bigfile)
+                [[ $createbigfile -eq 1 ]] && output+=" "$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file bigfile)
 
                 filelist+="$output "
             fi
@@ -338,21 +342,15 @@ for dc_file in $dcfiles
     fi
 done
 
-# Remove .images and .profiled, because .profiled may contain symlinks
-# outside of the path that we copy in the next step which can cause errors
-# and we don't really need those directories.
-# However, we do not(!) remove .tmp because it may contain bigfiles.
-docker exec $docker_id rm -rf $temp_dir/build/{.images,.profiled}
-
-# copy the finished product back to the host
+# copy the finished product to final directory
 mkdir -p $outdir
-docker cp $docker_id:$temp_dir/build/. $outdir
+cp -r $localsourcetempdir/build/. $outdir
 if [[ "$filelist" ]]
   then
-    echo "$filelist" | tr ' ' '\n' | sed -r -e "s#^$temp_dir/build#$outdir#" >> $outdir/filelist
+    echo "$filelist" | tr ' ' '\n' | sed -r -e "s#^$containersourcetempdir/build#$outdir#" >> $outdir/filelist
 fi
 [[ user_change -eq 1 ]] && chown -R $user $outdir
 
 # clean up
-rm -rf $localtempdir 2>/dev/null
+clean_temp
 stop_docker

@@ -73,24 +73,26 @@ fi
 
 # create absolute path and strip trailing '/' if any
 # (otherwise the ls below will not work)
-dir=$(readlink -f "$1" | sed 's_/$__')
+dir=$(readlink -f -- "$1" | sed 's_/$__')
 
 if [ -d "$dir" ]
   then
-    if [[ $(ls $dir/DC-*) ]]
+    if [[ $(ls -- $dir/DC-*) ]]
       then
-        dc_files=$(ls $dir | grep 'DC-*')
+        dc_files=$(ls -- $dir | grep 'DC-*')
         echo -e "Building DC file(s): "$(echo -e -n "$dc_files" | tr '\n' ' ')
       else
         error_exit "No DC files found in $dir."
     fi
-  elif [ -f $dir ] && [[ $(basename $dir | grep '^DC-') ]]
+  elif [ -f $dir ] && [[ $(basename -- $dir | grep '^DC-') ]]
   then
-    dc_files=$(basename $dir)
-    dir=$(dirname $dir)
+    dc_files=$(basename -- $dir)
+    dir=$(dirname -- $dir)
     echo -e "Building DC file: $dc_files"
   else
-    exit "Directory $dir does not exist."
+    message_addendum=''
+    [[ "$1" == '-d' || "$1" == '-m' ]] && message_addendum="-d is not required for daps2docker."
+    error_exit "Directory $dir does not exist.$message_addendum"
 fi
 
 shift

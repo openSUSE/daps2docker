@@ -17,7 +17,8 @@ For `Docker`:
 
 For `Podman`:
 
-* See [Official documentation](https://github.com/containers/libpod/blob/master/install.md)
+* The minimum required version is `1.1.0`.
+For installation see [Official documentation](https://github.com/containers/libpod/blob/master/install.md)
 
 
 2. Clone this repository: `git clone https://github.com/openSUSE/daps2docker`

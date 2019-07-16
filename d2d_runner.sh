@@ -1,21 +1,22 @@
 #! /bin/bash
 
-# daps2docker Docker Helper
-# This script runs all the Docker-related commands, having this in a separate
+# daps2docker Docker/Podman Helper
+# This script runs all the Docker/Podman related commands, having this in a separate
 # scripts makes it easier to run with root privileges
 
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
 
 app_help() {
-  echo "$0 / Build DAPS documentation in a Docker container (inner script)."
+  echo "$0 / Build DAPS documentation in a container (inner script)."
   echo "Unlike daps2docker itself, this script assumes a few things:"
-  echo "  * the Docker service is running"
-  echo "  * the current user is allowed to run Docker"
+  echo "  * [docker] the Docker service is running"
+  echo "  * [docker] the current user is allowed to run Docker"
   echo "  * there is an empty output directory"
   echo "In exchange, you can run relatively arbitrary DAPS commands."
   echo ""
   echo "Parameters (* mandatory):"
+  echo "  -e=CONTAINER_ENGINE   # *prefered engine to run the containers (docker|podman)"
   echo "  -i=INPUT_PATH         # *path to input directory"
   echo "  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)"
   echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
@@ -36,7 +37,7 @@ error_exit() {
     # $1 - message string
     # $2 - error code (optional)
     echo -e "(Exiting d2d_runner) $1"
-    stop_docker
+    stop_container
     [[ $2 ]] && exit $2
     exit 1
 }
@@ -58,28 +59,30 @@ build_xsltparameters() {
 }
 
 clean_temp() {
-    # Some things need to be deleted within Docker, because Docker writes as
-    # root, but we may not have root permissions.
-    if [[ "$docker_id" ]]
+    # Some things need to be deleted within Docker/Podman, because the user in the
+    # container writes as root, but we may not have root permissions.
+    if [[ "$container_id" ]]
       then
-        docker exec $docker_id rm -rf $containersourcetempdir/build
-        docker exec $docker_id rm -rf $containersourcetempdir/images/generated
+        "$container_engine" exec $container_id rm -rf $containersourcetempdir/build
+        "$container_engine" exec $container_id rm -rf $containersourcetempdir/images/generated
     fi
     rm -rf $localtempdir 2>/dev/null
 }
 
-stop_docker() {
-    if [[ "$docker_id" ]]
+stop_container() {
+    if [[ "$container_id" ]]
       then
         # stop the Daps container
-        docker stop $docker_id >/dev/null 2>/dev/null
+        "$container_engine" stop $container_id >/dev/null 2>/dev/null
 
         # we won't ever use the same container again, so remove the container's files
-        docker rm $docker_id >/dev/null 2>/dev/null
+        "$container_engine" rm $container_id >/dev/null 2>/dev/null
     fi
 }
 
 . $mydir/defaults
+
+container_engine=${CONTAINER_ENGINE:-docker}
 
 user=$(whoami)
 user_change=0
@@ -112,6 +115,9 @@ for i in "$@"
       -h|--help)
         app_help
         exit 0
+      ;;
+      -e=*|--container-engine=*)
+        container_engine="${i#*=}"
       ;;
       -s=*|--change-user=*)
         user_change=1
@@ -211,20 +217,20 @@ mkdir "$localsourcetempdir"
 containertempdir=/daps_temp-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c10)
 containersourcetempdir="$containertempdir/source"
 
-[[ $autoupdate -eq 1 ]] && docker pull $containername
+[[ $autoupdate -eq 1 ]] && "$container_engine" pull $containername
 
 # If the container does not exist, this command will still output "[]", hence
 # the sed. NB: We need to do this after the pull, as the pull might just
 # produce the necessary image.
-if [[ ! $(docker image inspect $containername 2>/dev/null | sed 's/\[\]//') ]]
+if [[ ! $("$container_engine" image inspect $containername 2>/dev/null | sed 's/\[\]//') ]]
   then
     clean_temp
     error_exit "Container image $containername does not exist."
 fi
 
 # spawn a Daps container
-docker_id=$( \
-  docker run \
+container_id=$( \
+  "$container_engine" run \
     --detach \
     --mount type=bind,source="$localtempdir",target="$containertempdir" \
     "$containername" \
@@ -239,7 +245,7 @@ if [ ! $? -eq 0 ]
 fi
 
 # first get the name of the container, then get the ID of the Daps container
-echo "Container ID: $docker_id"
+echo "Container ID: $container_id"
 
 
 # only copy the stuff we want -- not sure whether that saves any time, but it
@@ -272,7 +278,7 @@ if [[ $info -eq 1 ]]
     echo "Package versions in container:"
     for dep in daps daps-devel libxslt-tools libxml2-tools xmlgraphics-fop docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets hpe-xsl-stylesheets geekodoc novdoc
       do
-        rpmstring=$(docker exec $docker_id rpm -qi $dep)
+        rpmstring=$("$container_engine" exec $container_id rpm -qi $dep)
         echo -n '  - '
         if [[ $(echo -e "$rpmstring" | head -1 | grep 'not installed') ]]
           then
@@ -296,22 +302,22 @@ for dc_file in $dcfiles
     # container author has forgotten it.
     echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
     echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
-    docker cp $localtempdir/d2d-dapsrc-geekodoc $docker_id:/root/.config/daps/dapsrc
-    validation=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+    "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
+    validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
     validation_attempts=1
     if [[ "$autovalidate" -ne 0 ]]
       then
         if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
           then
             # Try again but with the DocBook upstream
-            docker cp $localtempdir/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
-            validation=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+            "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+            validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
             validation_attempts=2
         fi
       else
         # Make sure we are not using GeekoDoc in this case, to provoke lowest
         # number of build failures
-        docker cp $localtempdir/d2d-dapsrc-db51 $docker_id:/root/.config/daps/dapsrc
+        "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
     fi
     if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
       then
@@ -326,7 +332,7 @@ for dc_file in $dcfiles
             dapsparameters=
             [[ $dapsparameterfile ]] && dapsparameters+=$(cat $dapsparameterfile)
             [[ $xsltparameterfile ]] && dapsparameters+=$(build_xsltparameters $xsltparameterfile)
-            output=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters)
+            output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters)
             if [[ $(echo -e "$output" | grep "Stop\.$") ]]
               then
                 clean_temp
@@ -334,7 +340,7 @@ for dc_file in $dcfiles
             else
                 # Let's just assume that we can always build a bigfile if we can
                 # build regular output.
-                [[ $createbigfile -eq 1 ]] && output+=" "$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file bigfile)
+                [[ $createbigfile -eq 1 ]] && output+=" "$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile)
 
                 filelist+="$output "
             fi
@@ -353,4 +359,4 @@ fi
 
 # clean up
 clean_temp
-stop_docker
+stop_container

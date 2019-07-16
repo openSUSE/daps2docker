@@ -3,9 +3,10 @@
 # daps2docker
 # Author: Fabian Baumanis
 #
-# A script which takes a DAPS build directory, loads it into a DAPS docker
-# container, builds it, and returns the directory with the built documentation.
+# A script which takes a DAPS build directory, loads it into a DAPS container,
+# builds it, and returns the directory with the built documentation.
 
+container_engine=${CONTAINER_ENGINE:-docker}
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
 
@@ -23,7 +24,7 @@ error_exit() {
 }
 
 app_help() {
-  echo "daps2docker / Build DAPS documentation in a Docker container."
+  echo "daps2docker / Build DAPS documentation in a container."
   echo "Usage:"
   echo "  (1) $0 [DOC_DIR] [FORMAT]"
   echo "      # Build all DC files in DOC_DIR"
@@ -35,8 +36,8 @@ app_help() {
     then
       echo ""
       echo "Extended options:"
-      echo "  D2D_IMAGE=[DOCKER_IMAGE_ID] $0 [...]"
-      echo "      # Use the Docker image with the given ID instead of the default."
+      echo "  D2D_IMAGE=[CONTAINER_IMAGE_ID] $0 [...]"
+      echo "      # Use the container image with the given ID instead of the default."
       echo "      # Note that the specified image must be available locally already."
   else
       echo ""
@@ -44,10 +45,10 @@ app_help() {
   fi
 }
 
-which docker >/dev/null 2>/dev/null
+which $container_engine >/dev/null 2>/dev/null
 if [ $? -gt 0 ]
   then
-    error_exit "Docker is not installed. Install the 'docker' package of your distribution."
+    error_exit "$container_engine is not installed. Install the '$container_engine' package of your distribution."
 fi
 
 if [ $# -eq 0 ] || [[ $1 == '--help' ]] || [[ $1 == '-h' ]]
@@ -110,32 +111,36 @@ fi
 echo "Building formats: $formats"
 formats=$(echo "$formats" | sed 's/ /,/')
 
-# PAGER=cat means we avoid calling "less" here which would make it interactive
-# and that is the last thing we want.
-# FIXME: I am sure there is a better way to do this.
-PAGER=cat systemctl status docker.service >/dev/null 2>/dev/null
-service_status=$?
-if [ $service_status -eq 3 ]
-  then
-    if [[ ! $(whoami) == 'root' ]]
-      then
-        echo "Docker service is not running. Give permission to start it."
-        sudo systemctl start docker.service
-      else
-        systemctl start docker.service
-    fi
-  elif [ $service_status -gt 0 ]
+if [[ "$container_engine" == "docker" ]]; then
+  # PAGER=cat means we avoid calling "less" here which would make it interactive
+  # and that is the last thing we want.
+  # FIXME: I am sure there is a better way to do this.
+  PAGER=cat systemctl status docker.service >/dev/null 2>/dev/null
+  service_status=$?
+  if [ $service_status -eq 3 ]
     then
-    error_exit "Issue with Docker service. Check 'systemctl status docker' yourself."
+      if [[ ! $(whoami) == 'root' ]]
+        then
+          echo "Docker service is not running. Give permission to start it."
+          sudo systemctl start docker.service
+        else
+          systemctl start docker.service
+      fi
+    elif [ $service_status -gt 0 ]
+      then
+      error_exit "Issue with Docker service. Check 'systemctl status docker' yourself."
+  fi
 fi
 
 # Find out if we need elevated privileges (very likely, as that is the default)
-if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) ]]
+if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) || $EUID -eq 0 ]]
   then
-    $mydir/d2d_runner.sh -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
+    $mydir/d2d_runner.sh -e="$container_engine" -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
   else
-    echo "Your user account is not part of the group 'docker'. Docker needs to be run as root."
-    sudo $mydir/d2d_runner.sh -s=$(whoami) -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
+    if [[ "$container_engine" == "docker" ]]; then
+      echo "Your user account is not part of the group 'docker'. Docker needs to be run as root."
+    fi
+    sudo $mydir/d2d_runner.sh -e="$container_engine" -s=$(whoami) -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
 fi
 if [[ -d "$outdir" ]] && [[ -f "$outdir/filelist" ]]
   then

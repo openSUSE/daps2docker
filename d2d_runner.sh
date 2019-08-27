@@ -270,7 +270,7 @@ done
 if [[ $info -eq 1 ]]
   then
     echo "Package versions in container:"
-    for dep in daps daps-devel libxslt-tools libxml2-tools xmlgraphics-fop docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets hpe-xsl-stylesheets geekodoc novdoc
+    for dep in daps libxslt-tools libxml2-tools xmlgraphics-fop docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets geekodoc novdoc
       do
         rpmstring=$(docker exec $docker_id rpm -qi $dep)
         echo -n '  - '

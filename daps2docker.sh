@@ -30,7 +30,7 @@ app_help() {
   echo "  (2) $0 [DC_FILE] [FORMAT]"
   echo "      # Build specific DC file as FORMAT"
   echo "If FORMAT is omitted, daps2docker will build: $formats."
-  echo "Recognized formats: $valid_formats."
+  echo "Supported formats: ${!valid_formats[@]}."
   if [[ "$1" == "extended" ]]
     then
       echo ""
@@ -91,7 +91,7 @@ if [ -d "$dir" ]
     echo -e "Building DC file: $dc_files"
   else
     message_addendum=''
-    [[ "$1" == '-d' || "$1" == '-m' ]] && message_addendum="-d is not required for daps2docker."
+    [[ "$1" == '-d' || "$1" == '-m' ]] && message_addendum=" $1 is not required for daps2docker."
     error_exit "Directory $dir does not exist.$message_addendum"
 fi
 
@@ -99,11 +99,12 @@ shift
 if [[ "$1" ]]
   then
     requested_format=$(echo "$1" | sed 's/[^-a-z0-9]//g')
-    if [[ $(echo "$valid_formats" | grep -P "\b$requested_format\b") ]]
+    format_string=$(echo "${!valid_formats[@]}")
+    if [[ $(echo " $format_string " | grep " $format ") ]]
       then
         formats="$requested_format"
       else
-        error_exit "Requested format $1 is not supported.\nSupported formats: $valid_formats"
+        error_exit "Requested format $1 is not supported.\nSupported formats: $format_string"
     fi
 fi
 echo "Building formats: $formats"

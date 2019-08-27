@@ -19,7 +19,7 @@ app_help() {
   echo "  -i=INPUT_PATH         # *path to input directory"
   echo "  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)"
   echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
-  echo "$valid_formats" | fold -w 54 -s | sed 's/^/                          /'
+  echo "${!valid_formats[@]}" | fold -w 54 -s | sed 's/^/                          /'
   echo "  -v=0/1                # validate before building? default: 1 (on)"
   echo "  -d=PARAMETER_FILE     # file with extra DAPS parameters"
   echo "  -x=PARAMETER_FILE     # file with extra XSLT processor parameters"
@@ -50,10 +50,24 @@ is_bool() {
 build_xsltparameters() {
     # $1 - file to work from
     paramlist=
-    cat $1 | while read param
+    params=$(cat $1)
+    paramlen=$(echo -e "$params" | wc -l)
+    for l in $(seq 1 $paramlen)
       do
-        paramlist+=" --stringparam='"$param"'"
+        paramlist+="--stringparam='"$(echo -e "$params" | sed -n "$l p")"' "
     done
+    echo "$paramlist"
+}
+
+build_dapsparameters() {
+    # $1 - file to work from
+    # $2 - current format
+    paramlist=
+    valid_params=$(echo -e "${valid_formats[$2]}" | tr ' ' '\n' | sed -n '/./ p' | sort -u)
+    params=$(cat $1 | sed -n '/./ p' | sort -u)
+    paramlist=$(comm -12 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
+    paramlist_dropped=$(comm -13 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
+    [[ -n "$paramlist_dropped" ]] && >&2 echo "The following DAPS parameters are not supported either by DAPS or by daps2docker and have been dropped: $paramlist_dropped"
     echo "$paramlist"
 }
 
@@ -175,7 +189,8 @@ done
 formats=$(echo "$formats" | sed  -e 's/[^-,a-z]//g' -e 's/,/ /g')
 for format in $formats
   do
-    [[ ! $(echo " $valid_formats " | grep -P " $format ") ]] && error_exit "Requested format $format is not supported.\nSupported formats: $valid_formats"
+    format_string=$(echo "${!valid_formats[@]}")
+    [[ ! $(echo " $format_string " | grep " $format ") ]] && error_exit "Requested format $format is not supported.\nSupported formats: $format_string"
 done
 
 [[ $(echo "$containername" | sed -r 's=^([-_.a-zA-Z0-9]+/[-_.a-zA-Z0-9]+:[-_.a-zA-Z0-9]+|[0-9a-f]+)==') ]] && error_exit "Container name \"$containername\" seems invalid."
@@ -324,9 +339,11 @@ for dc_file in $dcfiles
           do
             [[ $format == 'single-html' ]] && format='html --single'
             dapsparameters=
-            [[ $dapsparameterfile ]] && dapsparameters+=$(cat $dapsparameterfile)
-            [[ $xsltparameterfile ]] && dapsparameters+=$(build_xsltparameters $xsltparameterfile)
-            output=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters)
+            xsltparameters=
+            [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format)
+            [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)
+            echo -e "daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters"
+            output=$(docker exec $docker_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters)
             if [[ $(echo -e "$output" | grep "Stop\.$") ]]
               then
                 clean_temp

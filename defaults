@@ -1,6 +1,27 @@
 #! /bin/bash
 
-valid_formats="bigfile epub html online-docs pdf package-html package-pdf package-src single-html text webhelp"
+# For the moment, we support only a few options, namely:
+# * those that do not require extra parameters like file names, to simplify
+#   handling (FIXME...)
+# * those that we can support (e.g. pdf --formatter=xep won't work, because xep
+#   is not part of the container)
+# * XSLT parameters are supported separately -> excluded
+# * --help does not generate a document -> excluded
+declare -A valid_formats
+valid_formats=(\
+  ["bigfile"]="--novalid --norefcheck" \
+  ["epub"]="--norefcheck" \
+  ["html"]="--draft --meta --norefcheck --nostatic --remarks" \
+  ["online-docs"]="--noepub --nohtml --nopdf --noset --optipng" \
+  ["pdf"]="--draft --grayscale --meta --norefcheck --remarks" \
+  ["package-html"]="--desktopfiles --documentfiles --pagefiles --single" \
+  ["package-pdf"]="--desktopfiles --documentfiles --grayscale --pagefiles" \
+  ["package-src"]="--locdrop --optipng" \
+  ["single-html"]="--draft --meta --norefcheck --nostatic --remarks" \
+  ["text"]="--ignore-styleroot --norefcheck" \
+  ["webhelp"]="--draft --norefcheck --nosearch --nostatic --remarks" \
+  )
+
 formats="html,pdf"
 
 containername="susedoc/ci:openSUSE-42.3-sbp"

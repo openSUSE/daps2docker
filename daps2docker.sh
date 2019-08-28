@@ -56,7 +56,7 @@ fi
 if [[ $container_engine == 'podman' ]]
   then
     installed_podman_version=$(podman --version | awk '{print $3}')
-    if [[ '$minimum_podman_version' != $(echo -e "$minimum_podman_version\n$installed_podman_version" | sort --version-sort | head -1) ]]
+    if [[ $minimum_podman_version != $(echo -e "$minimum_podman_version\n$installed_podman_version" | sort --version-sort | head -1) ]]
       then
         error_exit "Installed version of $container_engine is not supported. Make sure to install version $minimum_podman_version or higher."
     fi

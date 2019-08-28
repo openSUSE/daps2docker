@@ -100,7 +100,7 @@ if [[ "$1" ]]
   then
     requested_format=$(echo "$1" | sed 's/[^-a-z0-9]//g')
     format_string=$(echo "${!valid_formats[@]}")
-    if [[ $(echo " $format_string " | grep " $format ") ]]
+    if [[ $(echo " $format_string " | grep " $requested_format ") ]]
       then
         formats="$requested_format"
       else

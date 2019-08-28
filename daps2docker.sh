@@ -7,6 +7,8 @@
 # builds it, and returns the directory with the built documentation.
 
 container_engine=${CONTAINER_ENGINE:-docker}
+minimum_podman_version=1.1.0
+
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
 
@@ -49,6 +51,15 @@ which $container_engine >/dev/null 2>/dev/null
 if [ $? -gt 0 ]
   then
     error_exit "$container_engine is not installed. Install the '$container_engine' package of your distribution."
+fi
+
+if [[ $container_engine == 'podman' ]]
+  then
+    installed_podman_version=$(podman --version | awk '{print $3}')
+    if [[ '$minimum_podman_version' != $(echo -e "$minimum_podman_version\n$installed_podman_version" | sort --version-sort | head -1) ]]
+      then
+        error_exit "Installed version of $container_engine is not supported. Make sure to install version $minimum_podman_version or higher."
+    fi
 fi
 
 if [ $# -eq 0 ] || [[ $1 == '--help' ]] || [[ $1 == '-h' ]]

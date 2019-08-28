@@ -6,7 +6,10 @@
 # A script which takes a DAPS build directory, loads it into a DAPS container,
 # builds it, and returns the directory with the built documentation.
 
-container_engine=${CONTAINER_ENGINE:-docker}
+container_engine=docker
+[[ "$CONTAINER_ENGINE" == 'podman' ]] && container_engine=$CONTAINER_ENGINE
+[[ $CONTAINER_ENGINE != $container_engine ]] && \
+  echo "Using $container_engine instead of requested unsupported container engine \"$CONTAINER_ENGINE\"."
 minimum_podman_version=1.1.0
 
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))

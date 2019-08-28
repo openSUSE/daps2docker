@@ -149,8 +149,9 @@ if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) && $container_en
     $mydir/d2d_runner.sh -e="$container_engine" -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
   else
     if [[ "$container_engine" == "docker" ]]; then
-      echo "Your user account is not part of the group 'docker'. Docker needs to be run as root."
+      echo -n "Your user account is not part of the group 'docker'."
     fi
+    echo "$container_engine needs to be run as root."
     sudo $mydir/d2d_runner.sh -e="$container_engine" -s=$(whoami) -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
 fi
 if [[ -d "$outdir" ]] && [[ -f "$outdir/filelist" ]]

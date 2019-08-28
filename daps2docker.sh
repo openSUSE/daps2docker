@@ -8,7 +8,7 @@
 
 container_engine=docker
 [[ "$CONTAINER_ENGINE" == 'podman' ]] && container_engine=$CONTAINER_ENGINE
-[[ $CONTAINER_ENGINE != $container_engine ]] && \
+[[ $CONTAINER_ENGINE != $container_engine && -n $CONTAINER_ENGINE ]] && \
   echo "Using $container_engine instead of requested unsupported container engine \"$CONTAINER_ENGINE\"."
 minimum_podman_version=1.1.0
 

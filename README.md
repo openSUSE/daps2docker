@@ -8,18 +8,16 @@ to save you the hassles of setting up a documentation toolchain.
 
 1. Install the package for your distribution.
 
-  For Docker engine:
+   For Docker engine:
+   *  OpenSUSE/SLES: `sudo zypper install docker`
+   *  Fedora/RHEL: `sudo dnf install docker`
+   *  Ubuntu/Debian: `sudo apt install docker.io`
 
-  *  OpenSUSE/SLES: `sudo zypper install docker`
-  *  Fedora/RHEL: `sudo dnf install docker`
-  *  Ubuntu/Debian: `sudo apt install docker.io`
-
-  For Podman engine:
-
-  * The minimum required version is `1.1.0`.
-    On openSUSE Leap 15.1, use the `podman` version from the OBS project
-    `devel:kubic`. On openSUSE Tumbleweed, use the default version of `podman`.
-    For more installation advice, see the [official documentation](https://github.com/containers/libpod/blob/master/install.md).
+   For Podman engine:
+   *  The minimum required version is `1.1.0`.
+      On openSUSE Leap 15.1, use the `podman` version from the OBS project
+      `devel:kubic`. On openSUSE Tumbleweed, use the default version of `podman`.
+      For more installation advice, see the [official documentation](https://github.com/containers/libpod/blob/master/install.md).
 
 
 2. Clone this repository: `git clone https://github.com/openSUSE/daps2docker`
@@ -53,11 +51,11 @@ This means, you need:
    By default, the script will create PDF and HTML output, but there are
    more formats available: See the output of `./daps2docker.sh --help`.
 5. You may have to enter the `root` password.
-   * If you are using the Docker engine, this allows starting the Docker
-     service. It also allows starting/stopping containers when your user
-     account is not part of the `docker` group.
-   * If you are using Podman, this allows starting/stopping containers.
-     (Rootless Podman is currently not supported.)
+   *  If you are using the Docker engine, this allows starting the Docker
+      service. It also allows starting/stopping containers when your user
+      account is not part of the `docker` group.
+   *  If you are using Podman, this allows starting/stopping containers.
+      (Rootless Podman is currently not supported.)
 
 When it is done, the script will tell you where it copied the output documents.
 Take a look!

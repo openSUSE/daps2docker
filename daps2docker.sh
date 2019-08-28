@@ -133,7 +133,7 @@ if [[ "$container_engine" == "docker" ]]; then
   service_status=$?
   if [ $service_status -eq 3 ]
     then
-      if [[ ! $(whoami) == 'root' ]]
+      if [[ ! $EUID -eq 0 ]]
         then
           echo "Docker service is not running. Give permission to start it."
           sudo systemctl start docker.service

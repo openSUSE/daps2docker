@@ -144,7 +144,7 @@ if [[ "$container_engine" == "docker" ]]; then
 fi
 
 # Find out if we need elevated privileges (very likely, as that is the default)
-if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) || $EUID -eq 0 ]]
+if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) && $container_engine == 'docker' ]] || [[ $EUID -eq 0 ]]
   then
     $mydir/d2d_runner.sh -e="$container_engine" -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
   else

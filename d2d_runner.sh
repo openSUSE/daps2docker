@@ -44,8 +44,7 @@ error_exit() {
 
 is_bool() {
     # $1 - value to check for boolness
-    [[ "$1" == 0 ]] && echo "isbool"
-    [[ "$1" == 1 ]] && echo "isbool"
+    [[ "$1" == 0 || "$1" == 1 ]] && echo "isbool"
 }
 
 build_xsltparameters() {

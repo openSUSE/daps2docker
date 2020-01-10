@@ -158,7 +158,7 @@ for i in "$@"
         dapsparameterfile="${i#*=}"
       ;;
       -v=*|--auto-validate=*)
-        validation="${i#*=}"
+        autovalidate="${i#*=}"
       ;;
       -b=*|--create-bigfile=*)
         createbigfile="${i#*=}"
@@ -316,11 +316,14 @@ for dc_file in $dcfiles
     # container author has forgotten it.
     echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
     echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
-    "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
-    validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
-    validation_attempts=1
+
+    validation=
     if [[ "$autovalidate" -ne 0 ]]
       then
+      "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
+
+      validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+      validation_attempts=1
         if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
           then
             # Try again but with the DocBook upstream

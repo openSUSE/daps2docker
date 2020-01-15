@@ -4,8 +4,8 @@
 # This script runs all the Docker/Podman related commands, having this in a separate
 # scripts makes it easier to run with root privileges
 
-me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
-mydir=$(dirname $me)
+me=$(test -L $(realpath "$0") && readlink $(realpath "$0") || echo $(realpath "$0"))
+mydir=$(dirname "$me")
 
 app_help() {
   echo "$0 / Build DAPS documentation in a container (inner script)."
@@ -38,7 +38,7 @@ error_exit() {
     # $2 - error code (optional)
     echo -e "(Exiting d2d_runner) $1"
     stop_container
-    [[ $2 ]] && exit $2
+    [[ "$2" ]] && exit "$2"
     exit 1
 }
 
@@ -50,11 +50,11 @@ is_bool() {
 build_xsltparameters() {
     # $1 - file to work from
     paramlist=
-    params=$(cat $1)
+    params=$(cat "$1")
     paramlen=$(echo -e "$params" | wc -l)
-    for l in $(seq 1 $paramlen)
+    for l in $(seq 1 "$paramlen")
       do
-        paramlist+="--stringparam='"$(echo -e "$params" | sed -n "$l p")"' "
+        paramlist+="--stringparam='"$(echo -e "$params" | sed -n "$l p" | sed -r 's/'"'"'/'"'\"'\"'"'/g')"' "
     done
     echo "$paramlist"
 }
@@ -64,7 +64,7 @@ build_dapsparameters() {
     # $2 - current format
     paramlist=
     valid_params=$(echo -e "${valid_formats[$2]}" | tr ' ' '\n' | sed -n '/./ p' | sort -u)
-    params=$(cat $1 | sed -n '/./ p' | sort -u)
+    params=$(sed -n '/./ p' "$1" | sort -u)
     paramlist=$(comm -12 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
     paramlist_dropped=$(comm -13 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
     [[ -n "$paramlist_dropped" ]] && >&2 echo "The following DAPS parameters are not supported either by DAPS or by daps2docker and have been dropped: $paramlist_dropped"
@@ -76,24 +76,25 @@ clean_temp() {
     # container writes as root, but we may not have root permissions.
     if [[ "$container_id" ]]
       then
-        "$container_engine" exec $container_id rm -rf $containersourcetempdir/build
-        "$container_engine" exec $container_id rm -rf $containersourcetempdir/images/generated
+        "$container_engine" exec "$container_id" rm -rf "$containersourcetempdir/build"
+        "$container_engine" exec "$container_id" rm -rf "$containersourcetempdir/images/generated"
     fi
-    rm -rf $localtempdir 2>/dev/null
+    rm -rf "$localtempdir" 2>/dev/null
 }
 
 stop_container() {
     if [[ "$container_id" ]]
       then
         # stop the Daps container
-        "$container_engine" stop $container_id >/dev/null 2>/dev/null
+        "$container_engine" stop "$container_id" >/dev/null 2>/dev/null
 
         # we won't ever use the same container again, so remove the container's files
-        "$container_engine" rm $container_id >/dev/null 2>/dev/null
+        "$container_engine" rm "$container_id" >/dev/null 2>/dev/null
     fi
 }
 
-. $mydir/defaults
+# shellcheck source=defaults
+. "$mydir/defaults"
 
 container_engine=${CONTAINER_ENGINE:-docker}
 
@@ -190,11 +191,11 @@ done
 [[ -f $outdir ]] && error_exit "Output directory \"$outdir\" already exists but is a regular file."
 [[ $(echo "$outdir" | sed -r 's=^(/[-_.@a-zA-Z0-9]+)+/?$==') ]] && error_exit "Output directory \"$dir\" is a nonconformist path."
 
-(([[ $dapsparameterfile ]] || [[ $xsltparameterfile ]]) && [[ $(echo "$formats" | grep -o ',') ]]) && error_exit "When using parameter files, only one format can be built. Decide!"
-formats=$(echo "$formats" | sed  -e 's/[^-,a-z]//g' -e 's/,/ /g')
+{ [[ "$dapsparameterfile" || "$xsltparameterfile" ]] && [[ $(echo "$formats" | grep -q ',') ]]; } && error_exit "When using parameter files, only one format can be built. Decide!"
+formats=$(echo "$formats" | sed -e 's/[^-,a-z]//g' -e 's/,/ /g')
 for format in $formats
   do
-    format_string=$(echo "${!valid_formats[@]}")
+    format_string="${!valid_formats[*]}"
     [[ ! $(echo " $format_string " | grep " $format ") ]] && error_exit "Requested format $format is not supported.\nSupported formats: $format_string"
 done
 
@@ -202,9 +203,9 @@ done
 
 [[ ! $(is_bool "$autoupdate") ]] && error_exit "Automatic container update parameter ($autoupdate) is not set to 0 or 1."
 
-([[ $xsltparameterfile ]] && [[ ! -f $xsltparameterfile ]]) && error_exit "XSLT parameter file \"$xsltparameterfile\" does not exist."
+[[ "$xsltparameterfile" && ! -f "$xsltparameterfile" ]] && error_exit "XSLT parameter file \"$xsltparameterfile\" does not exist."
 
-([[ $dapsparameterfile ]] && [[ ! -f $dapsparameterfile ]]) && error_exit "DAPS parameter file \"$dapsparameterfile\" does not exist."
+[[ "$dapsparameterfile" && ! -f "$dapsparameterfile" ]] && error_exit "DAPS parameter file \"$dapsparameterfile\" does not exist."
 
 [[ ! $(is_bool "$autovalidate") ]] && error_exit "Automatic validation parameter ($autovalidate) is not 0 or 1."
 
@@ -214,9 +215,7 @@ done
 
 if [[ ! $dcfiles ]]
   then
-    cd $dir
-    dcfiles=$(ls DC-*)
-    cd - >/dev/null
+    dcfiles=$(cd "$dir" || exit 1; ls DC-*)
 fi
 for dcfile in $dcfiles
   do
@@ -231,18 +230,18 @@ mkdir "$localsourcetempdir"
 containertempdir=/daps_temp-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c10)
 containersourcetempdir="$containertempdir/source"
 
-[[ $autoupdate -eq 1 ]] && "$container_engine" pull $containername
+[[ "$autoupdate" -eq 1 ]] && "$container_engine" pull "$containername"
 
 # If the container does not exist, this command will still output "[]", hence
 # the sed. NB: We need to do this after the pull, as the pull might just
 # produce the necessary image.
-if [[ ! $("$container_engine" image inspect $containername 2>/dev/null | sed 's/\[\]//') ]]
+if [[ ! $("$container_engine" image inspect "$containername" 2>/dev/null | sed 's/\[\]//') ]]
   then
     clean_temp
     error_exit "Container image $containername does not exist."
 fi
 
-# spawn a Daps container
+# spawn a DAPS container
 container_id=$( \
   "$container_engine" run \
     --detach \
@@ -252,7 +251,7 @@ container_id=$( \
   )
 
 # check if spawn was successful
-if [ ! $? -eq 0 ]
+if [ $? -ne 0 ]
   then
     clean_temp
     error_exit "Error spawning container."
@@ -292,9 +291,9 @@ if [[ $info -eq 1 ]]
     echo "Package versions in container:"
     for dep in daps libxslt-tools libxml2-tools xmlgraphics-fop docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets geekodoc novdoc
       do
-        rpmstring=$("$container_engine" exec $container_id rpm -qi $dep)
+        rpmstring=$("$container_engine" exec "$container_id" rpm -qi $dep)
         echo -n '  - '
-        if [[ $(echo -e "$rpmstring" | head -1 | grep 'not installed') ]]
+        if echo -e "$rpmstring" | head -1 | grep -q 'not installed'
           then
             echo -n "$rpmstring"
           else
@@ -314,27 +313,27 @@ for dc_file in $dcfiles
 
     # This should be in there anyway, we just write it again just in case the
     # container author has forgotten it.
-    echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
-    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
+    echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > "$localtempdir/d2d-dapsrc-geekodoc"
+    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > "$localtempdir/d2d-dapsrc-db51"
 
     validation=
     if [[ "$autovalidate" -ne 0 ]]
       then
-      "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
+      "$container_engine" cp "$localtempdir/d2d-dapsrc-geekodoc" "$container_id:/root/.config/daps/dapsrc"
 
-      validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+      validation=$("$container_engine" exec "$container_id" daps "$dm" "$containersourcetempdir/$dc_file" validate 2>&1)
       validation_attempts=1
         if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
           then
             # Try again but with the DocBook upstream
-            "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
-            validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+            "$container_engine" cp "$localtempdir/d2d-dapsrc-db51" "$container_id:/root/.config/daps/dapsrc"
+            validation=$("$container_engine" exec "$container_id" daps "$dm" "$containersourcetempdir/$dc_file" validate 2>&1)
             validation_attempts=2
         fi
       else
         # Make sure we are not using GeekoDoc in this case, to provoke lowest
         # number of build failures
-        "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+        "$container_engine" cp "$localtempdir/d2d-dapsrc-db51" "$container_id:/root/.config/daps/dapsrc"
     fi
     if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
       then
@@ -348,18 +347,18 @@ for dc_file in $dcfiles
             [[ $format == 'single-html' ]] && format='html --single'
             dapsparameters=
             xsltparameters=
-            [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format)
-            [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)
+            [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters "$dapsparameterfile" "$format")
+            [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters "$xsltparameterfile")
             echo -e "daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters"
-            output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters)
-            if [[ $(echo -e "$output" | grep "Stop\.$") ]]
+            output=$("$container_engine" exec "$container_id" daps "$dm" "$containersourcetempdir/$dc_file" "$format" "$dapsparameters" "$xsltparameters")
+            if echo -e "$output" | grep -q "Stop\.$"
               then
                 clean_temp
                 error_exit "For $dc_file, the output format $format cannot be built. Exact message:\n\n$output\n"
             else
                 # Let's just assume that we can always build a bigfile if we can
                 # build regular output.
-                [[ $createbigfile -eq 1 ]] && output+=" "$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile)
+                [[ "$createbigfile" -eq 1 ]] && output+=" "$("$container_engine" exec "$container_id" daps "$dm" "$containersourcetempdir/$dc_file" bigfile)
 
                 filelist+="$output "
             fi
@@ -368,13 +367,13 @@ for dc_file in $dcfiles
 done
 
 # copy the finished product to final directory
-mkdir -p $outdir
-cp -r $localsourcetempdir/build/. $outdir
+mkdir -p "$outdir"
+cp -r "$localsourcetempdir"/build/. "$outdir"
 if [[ "$filelist" ]]
   then
-    echo "$filelist" | tr ' ' '\n' | sed -r -e "s#^$containersourcetempdir/build#$outdir#" >> $outdir/filelist
+    echo "$filelist" | tr ' ' '\n' | sed -r -e "s#^$containersourcetempdir/build#$outdir#" >> "$outdir/filelist"
 fi
-[[ user_change -eq 1 ]] && chown -R $user $outdir
+[[ "$user_change" -eq 1 ]] && chown -R "$user" "$outdir"
 
 # clean up
 clean_temp

@@ -149,7 +149,7 @@ fi
 # Find out if we need elevated privileges (very likely, as that is the default)
 if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) && $container_engine == 'docker' ]] || [[ $EUID -eq 0 ]]
   then
-    $mydir/d2d_runner.sh -e="$container_engine" -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
+    $mydir/d2d_runner.sh -e="$container_engine" -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" -x="/home/sknorr-l/data/gits/docserv-config/xslt-params-doc-suse-com.txt" $dc_files
   else
     if [[ "$container_engine" == "docker" ]]; then
       echo -n "Your user account is not part of the group 'docker'."

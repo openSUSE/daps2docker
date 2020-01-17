@@ -191,7 +191,7 @@ done
 [[ -f $outdir ]] && error_exit "Output directory \"$outdir\" already exists but is a regular file."
 [[ $(echo "$outdir" | sed -r 's=^(/[-_.@a-zA-Z0-9]+)+/?$==') ]] && error_exit "Output directory \"$dir\" is a nonconformist path."
 
-{ [[ "$dapsparameterfile" || "$xsltparameterfile" ]] && [[ $(echo "$formats" | grep -q ',') ]]; } && error_exit "When using parameter files, only one format can be built. Decide!"
+{ [[ "$dapsparameterfile" || "$xsltparameterfile" ]] && [[ $(echo "$formats" | grep ',') ]]; } && error_exit "When using parameter files, only one format can be built. Decide!"
 formats=$(echo "$formats" | sed -e 's/[^-,a-z]//g' -e 's/,/ /g')
 for format in $formats
   do
@@ -359,7 +359,6 @@ for dc_file in $dcfiles
                 # Let's just assume that we can always build a bigfile if we can
                 # build regular output.
                 [[ "$createbigfile" -eq 1 ]] && output+=" "$("$container_engine" exec "$container_id" daps "$dm" "$containersourcetempdir/$dc_file" bigfile)
-
                 filelist+="$output "
             fi
         done

@@ -20,7 +20,9 @@ to save you the hassles of setting up a documentation toolchain.
       For more installation advice, see the [official documentation](https://github.com/containers/libpod/blob/master/install.md).
 
 
-2. Clone this repository: `git clone https://github.com/openSUSE/daps2docker`
+2. Choose whether to install from the repository or as a package:
+   * For openSUSE/SLE, there is a package available at: https://build.opensuse.org/package/show/Documentation:Tools/daps2docker
+   * Alternatively, clone this repository: `git clone https://github.com/openSUSE/daps2docker`
 
 
 ### First-Run Prerequisites

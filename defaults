@@ -24,4 +24,4 @@ valid_formats=(\
 
 formats="html,pdf"
 
-containername="susedoc/ci:openSUSE-42.3-sbp"
+containername="susedoc/ci:latest"

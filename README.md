@@ -4,11 +4,13 @@ Create HTML and PDF output of documents in a DAPS-compatible DocBook or
 ASCIIDoc documentation repository. This script uses Docker (default) or Podman
 to save you the hassles of setting up a documentation toolchain.
 
+Daps2Docker works on all Linux distributions that include systemd.
+
 ## Installation
 
-1. Install the package for your distribution.
+1. Install either the Docker container engine (recommended) or the Podman container engine package for your distribution.
 
-   For Docker engine:
+   For Docker engine (recommended):
    *  OpenSUSE/SLES: `sudo zypper install docker`
    *  Fedora/RHEL: `sudo dnf install docker`
    *  Ubuntu/Debian: `sudo apt install docker.io`

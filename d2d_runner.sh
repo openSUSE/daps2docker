@@ -54,7 +54,9 @@ build_xsltparameters() {
     paramlen=$(echo -e "$params" | wc -l)
     for l in $(seq 1 $paramlen)
       do
-        paramlist+="--stringparam='"$(echo -e "$params" | sed -n "$l p")"' "
+        line=$(echo -e "$params" | sed -n "$l p")
+        [[ ! $(echo "$line" | sed -r 's/\s//g') ]] && continue
+        paramlist+="--stringparam='$line' "
     done
     echo "$paramlist"
 }

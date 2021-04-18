@@ -69,7 +69,7 @@ build_dapsparameters() {
     params=$(cat $1 | sed -n '/./ p' | sort -u)
     paramlist=$(comm -12 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
     paramlist_dropped=$(comm -13 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
-    [[ -n "$paramlist_dropped" ]] && >&2 echo "The following DAPS parameters are not supported either by DAPS or by daps2docker and have been dropped: $paramlist_dropped"
+    [[ $(echo "$paramlist_dropped" | sed -r 's/\s//g') ]] && >&2 echo "The following DAPS parameters are not supported either by DAPS or by daps2docker and have been dropped: $paramlist_dropped"
     echo "$paramlist"
 }
 

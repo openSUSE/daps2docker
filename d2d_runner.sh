@@ -314,17 +314,21 @@ for dc_file in $dcfiles
     echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
 
     validation=
+    validation_code=0
     if [[ "$autovalidate" -ne 0 ]]
       then
       "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
 
       validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+      validation_code=$?
+
       validation_attempts=1
-        if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
+        if [[ "$validation_code" -gt 0 ]]
           then
             # Try again but with the DocBook upstream
             "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
             validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+            validation_code=$?
             validation_attempts=2
         fi
       else
@@ -332,7 +336,7 @@ for dc_file in $dcfiles
         # number of build failures
         "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
     fi
-    if [[ $(echo -e "$validation" | wc -l) -gt 1 ]]
+    if [[ "$validation_code" -gt 0 ]]
       then
         echo -e "$validation"
         clean_temp
@@ -348,11 +352,18 @@ for dc_file in $dcfiles
             [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)
             echo -e "daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters"
             output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters)
-            if [[ $(echo -e "$output" | grep "Stop\.$") ]]
+            build_code=$?
+            if [[ "$build_code" -gt 0 ]]
               then
                 clean_temp
                 error_exit "For $dc_file, the output format $format cannot be built. Exact message:\n\n$output\n"
             else
+                # FIXME: The --create-bigfile option is used by Docserv2
+                # which also uses the DAPS/XSLT parameter file options which
+                # are incompatible with building multiple formats at once
+                # currently. This handling is slightly ugly, it might be
+                # better to allow format-specific parameter files.
+
                 # Let's just assume that we can always build a bigfile if we can
                 # build regular output.
                 [[ $createbigfile -eq 1 ]] && output+=" "$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile)

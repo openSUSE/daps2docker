@@ -306,7 +306,7 @@ if [[ $info -eq 1 ]]
     done
 fi
 
-# build HTML and PDF
+# build output formats
 filelist=''
 for dc_file in $dcfiles
   do

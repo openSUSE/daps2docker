@@ -292,18 +292,12 @@ done
 if [[ $info -eq 1 ]]
   then
     echo "Package versions in container:"
-    for dep in daps libxslt-tools libxml2-tools xmlgraphics-fop docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets geekodoc novdoc
-      do
-        rpmstring=$("$container_engine" exec $container_id rpm -qi $dep)
-        echo -n '  - '
-        if [[ $(echo -e "$rpmstring" | head -1 | grep 'not installed') ]]
-          then
-            echo -n "$rpmstring"
-          else
-            echo "$rpmstring" | head -2 | awk '{print $3;}' | tr '\n' ' '
-        fi
-        echo ''
-    done
+    "$container_engine" exec $container_id rpm -q --qf '- %{NAME} %{VERSION}\n' \
+      daps \
+      libxslt-tools libxml2-tools xmlgraphics-fop \
+      docbook_5 docbook_4 geekodoc novdoc \
+      docbook-xsl-stylesheets docbook5-xsl-stylesheets \
+      suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets
 fi
 
 # build output formats

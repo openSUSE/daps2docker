@@ -27,8 +27,9 @@ app_help() {
   echo "  -c=DOCKER_IMAGE       # container image for building"
   echo "  -u=0/1                # update container image? default: 1 (on)"
   echo "  -s=USER_NAME          # chown output files to this user"
+  echo "  -b=0/1                # create bigfile. default: 0 (off)"
+  echo "  -j=0/1                # create filelist.json (depends on jq). default: 0 (off)"
   echo "  -n=0/1                # show extra information? default: 1 (on)"
-  echo "  -b=0/1                # create bigfile additionally? default: 0 (off)"
   echo "  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc"
   echo "                        # DC/XML/AsciiDoc files to build from"
 }
@@ -40,6 +41,26 @@ error_exit() {
     stop_container
     [[ $2 ]] && exit $2
     exit 1
+}
+
+format_filelists() {
+  mkdir -p "$outdir"
+  if [[ "$filelist" ]]
+    then
+      echo "$filelist" | tr ' ' '\n' > "$outdir/filelist"
+  fi
+  [[ "$createjsonfilelist" -eq 1 ]] && echo '{'$(echo "$filelist_json" | sed -r 's/, *$//')'}' | jq > "$outdir/filelist.json"
+}
+
+json_line() {
+  # $1 - document name, $2 - format, $3 - status ('succeeded'/'failed'),
+  # $4 (optional) - file name
+
+  # jq will deduplicate keys, therefore use a hash as the key
+  local hash=$(echo "$1 $2" | md5sum | cut -b1-8)
+  local output_file="false"
+  [[ "$4" ]] && output_file="\"$4\""
+  filelist_json+="\"$hash\": {\"document\": \"$1\", \"format\": \"$2\", \"status\": \"$3\", \"file\": $output_file}, "
 }
 
 is_bool() {
@@ -120,6 +141,8 @@ createbigfile=0
 
 info=1
 
+createjsonfilelist=0
+
 dcfiles=
 
 unknown=
@@ -164,6 +187,9 @@ for i in "$@"
       ;;
       -b=*|--create-bigfile=*)
         createbigfile="${i#*=}"
+      ;;
+      -j=*|--json-filelist=*)
+        createjsonfilelist="${i#*=}"
       ;;
       -n=*|--info=*)
         info="${i#*=}"
@@ -212,7 +238,10 @@ done
 
 [[ ! $(is_bool "$createbigfile") ]] && error_exit "Bigfile creation parameter ($createbigfile) is not 0 or 1."
 
+[[ ! $(is_bool "$createjsonfilelist") ]] && error_exit "filelist.json creation parameter ($createjsonfilelist) is not 0 or 1."
+
 [[ ! $(is_bool "$info") ]] && error_exit "Extra information parameter ($autovalidate) is not 0 or 1."
+
 
 if [[ ! $dcfiles ]]
   then
@@ -302,6 +331,7 @@ fi
 
 # build output formats
 filelist=''
+filelist_json=''
 for dc_file in $dcfiles
   do
     dm="-d"
@@ -340,24 +370,34 @@ for dc_file in $dcfiles
       then
         echo -e "$validation"
         clean_temp
+        json_line "$dc_file" "validate" "failed"
+        format_filelists
         error_exit "$dc_file has validation issues and cannot be built."
       else
+        json_line "$dc_file" "validate" "succeeded"
         [[ $validation_attempts -gt 1 ]] && echo "$dc_file has validation issues when built with GeekoDoc. It validates with DocBook though. Results might not look ideal."
         for format in $formats
           do
-            [[ $format == 'single-html' ]] && format='html --single'
+            format_subcommand="$format"
+            [[ $format == 'single-html' ]] && format_subcommand='html --single'
             dapsparameters=
             xsltparameters=
-            [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format)
+            [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format_subcommand)
             [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)
-            echo -e "daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters"
-            output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format $dapsparameters $xsltparameters)
+            echo -e "daps $dm $containersourcetempdir/$dc_file $format_subcommand $dapsparameters $xsltparameters"
+            output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format_subcommand $dapsparameters $xsltparameters)
             build_code=$?
             if [[ "$build_code" -gt 0 ]]
               then
                 clean_temp
+                json_line "$dc_file" "$format" "failed"
+                format_filelists
                 error_exit "For $dc_file, the output format $format cannot be built. Exact message:\n\n$output\n"
             else
+                output_path=$(echo "$output" | sed -r -e "s#^$containersourcetempdir/build#$outdir#")
+                filelist+="$output_path "
+                json_line "$dc_file" "$format" "succeeded" "$output_path"
+
                 # FIXME: The --create-bigfile option is used by Docserv2
                 # which also uses the DAPS/XSLT parameter file options which
                 # are incompatible with building multiple formats at once
@@ -366,9 +406,13 @@ for dc_file in $dcfiles
 
                 # Let's just assume that we can always build a bigfile if we can
                 # build regular output.
-                [[ $createbigfile -eq 1 ]] && output+=" "$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile)
-
-                filelist+="$output "
+                if [[ $createbigfile -eq 1 ]]
+                  then
+                    output=$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile)
+                    output_path=$(echo "$output" | sed -r -e "s#^$containersourcetempdir/build#$outdir#")
+                    filelist+="$output_path "
+                    json_line "$dc_file" "bigfile" "succeeded" "$output_path"
+                fi
             fi
         done
     fi
@@ -377,10 +421,8 @@ done
 # copy the finished product to final directory
 mkdir -p $outdir
 cp -r $localsourcetempdir/build/. $outdir
-if [[ "$filelist" ]]
-  then
-    echo "$filelist" | tr ' ' '\n' | sed -r -e "s#^$containersourcetempdir/build#$outdir#" >> $outdir/filelist
-fi
+format_filelists
+
 [[ user_change -eq 1 ]] && chown -R $user $outdir
 
 # clean up

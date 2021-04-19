@@ -76,7 +76,7 @@ elif [[ $1 == '--help-extended' ]]
 fi
 
 autoupdate=1
-if [[ ! -z "$D2D_IMAGE" ]] && [[ ! $(echo "$D2D_IMAGE" | sed -r 's/[0-9a-f]//g') ]]
+if [[ ! -z "$D2D_IMAGE" ]] && [[ ! $(echo "$D2D_IMAGE" | sed -r 's=^([-_.a-zA-Z0-9]+(/[-_.a-zA-Z0-9]+)*(:[-_.a-zA-Z0-9]+)?|[0-9a-f]+)==') ]]
   then
     autoupdate=0
     containername=$D2D_IMAGE

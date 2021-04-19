@@ -226,7 +226,14 @@ for format in $formats
     [[ ! $(echo " $format_string " | grep " $format ") ]] && error_exit "Requested format $format is not supported.\nSupported formats: $format_string"
 done
 
-[[ $(echo "$containername" | sed -r 's=^([-_.a-zA-Z0-9]+/[-_.a-zA-Z0-9]+:[-_.a-zA-Z0-9]+|[0-9a-f]+)==') ]] && error_exit "Container name \"$containername\" seems invalid."
+# Not really sure it makes a lot of sense to validate this ultimately, there are
+# at least the following variations:
+#   Digest: d9483ffe78b4
+#   Name only: alpine
+#   Name and tag: alpine:latest
+#   Registry, name, tag: docker.io/alpine:latest
+#   Names on the registry can have additional path components: docker.io/susedoc/ci:latest
+[[ $(echo "$containername" | sed -r 's=^([-_.a-zA-Z0-9]+(/[-_.a-zA-Z0-9]+)*(:[-_.a-zA-Z0-9]+)?|[0-9a-f]+)==') ]] && error_exit "Container name \"$containername\" seems invalid."
 
 [[ ! $(is_bool "$autoupdate") ]] && error_exit "Automatic container update parameter ($autoupdate) is not set to 0 or 1."
 

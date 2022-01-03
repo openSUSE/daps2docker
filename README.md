@@ -1,7 +1,7 @@
 # Daps2Docker
 
 Create HTML and PDF output of documents in a DAPS-compatible DocBook or
-ASCIIDoc documentation repository. This script uses Docker (default) or Podman
+AsciiDoc documentation repository. This script uses Docker (default) or Podman
 to save you the hassles of setting up a documentation toolchain.
 
 ## Installation

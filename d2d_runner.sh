@@ -22,6 +22,7 @@ app_help() {
   echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
   echo "${!valid_formats[@]}" | fold -w 54 -s | sed 's/^/                          /'
   echo "  -v=0/1                # validate before building? default: 1 (on)"
+  echo "  -t=0/1                # run table validation? default: 1 (on)"
   echo "  -d=PARAMETER_FILE     # file with extra DAPS parameters"
   echo "  -x=PARAMETER_FILE     # file with extra XSLT processor parameters"
   echo "  -c=DOCKER_IMAGE       # container image for building"
@@ -136,6 +137,7 @@ xsltparameterfile=
 dapsparameterfile=
 
 autovalidate=1
+validatetables=1
 
 createbigfile=0
 
@@ -184,6 +186,9 @@ for i in "$@"
       ;;
       -v=*|--auto-validate=*)
         autovalidate="${i#*=}"
+      ;;
+      -t=*|--validate-tables=*)
+        validatetables="${i#*=}"
       ;;
       -b=*|--create-bigfile=*)
         createbigfile="${i#*=}"
@@ -338,6 +343,16 @@ if [[ $info -eq 1 ]]
       suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets
 fi
 
+# check whether we can/have to disable table validation (DAPS 3.3.0 is the first
+# version that shipped with it, DAPS 3.3.1 first shipped the parameter to
+# disable table validation everywhere; DAPS 3.3.0 is thus somewhat incompatible)
+table_valid_param=''
+daps_version_table_min=3.3.1
+daps_version=$("$container_engine" exec "$container_id" rpm -q --qf '%{VERSION}' daps)
+[[ "$validatetables" -eq 0 && \
+  $(echo -e "$daps_version_table_min\n$daps_version" | sort --version-sort | head -1) = "$daps_version_table_min" ]] && \
+  table_valid_param='--not-validate-tables'
+
 # build output formats
 filelist=''
 filelist_json=''
@@ -358,7 +373,7 @@ for dc_file in $dcfiles
       then
       "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
 
-      validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+      validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
       validation_code=$?
 
       validation_attempts=1
@@ -366,7 +381,7 @@ for dc_file in $dcfiles
           then
             # Try again but with the DocBook upstream
             "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
-            validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate 2>&1)
+            validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
             validation_code=$?
             validation_attempts=2
         fi
@@ -394,7 +409,7 @@ for dc_file in $dcfiles
             [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format_subcommand)
             [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)
             echo -e "daps $dm $containersourcetempdir/$dc_file $format_subcommand $dapsparameters $xsltparameters"
-            output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format_subcommand $dapsparameters $xsltparameters)
+            output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format_subcommand "$table_valid_param" $dapsparameters $xsltparameters)
             build_code=$?
             if [[ "$build_code" -gt 0 ]]
               then
@@ -417,7 +432,7 @@ for dc_file in $dcfiles
                 # build regular output.
                 if [[ $createbigfile -eq 1 ]]
                   then
-                    output=$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile)
+                    output=$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile "$table_valid_param")
                     output_path=$(echo "$output" | sed -r -e "s#^$containersourcetempdir/build#$outdir#")
                     filelist+="$output_path "
                     json_line "$dc_file" "bigfile" "succeeded" "$output_path"

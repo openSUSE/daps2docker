@@ -127,9 +127,9 @@ dir=
 
 outdir=
 
-# $formats, v/ defaults
+# $formats, via 'defaults' file
 
-# $containername, v/ defaults
+# $containername, via 'defaults' file
 autoupdate=1
 
 xsltparameterfile=
@@ -243,11 +243,13 @@ done
 
 [[ ! $(is_bool "$autovalidate") ]] && error_exit "Automatic validation parameter ($autovalidate) is not 0 or 1."
 
+[[ ! $(is_bool "$validatetables") ]] && error_exit "Table validation parameter ($validatetables) is not 0 or 1."
+
 [[ ! $(is_bool "$createbigfile") ]] && error_exit "Bigfile creation parameter ($createbigfile) is not 0 or 1."
 
 [[ ! $(is_bool "$createjsonfilelist") ]] && error_exit "filelist.json creation parameter ($createjsonfilelist) is not 0 or 1."
 
-[[ ! $(is_bool "$info") ]] && error_exit "Extra information parameter ($autovalidate) is not 0 or 1."
+[[ ! $(is_bool "$info") ]] && error_exit "Extra information parameter ($info) is not 0 or 1."
 
 
 if [[ ! $dcfiles ]]
@@ -382,7 +384,7 @@ for dc_file in $dcfiles
         error_exit "$dc_file has validation issues and cannot be built."
       else
         json_line "$dc_file" "validate" "succeeded"
-        [[ $validation_attempts -gt 1 ]] && echo "$dc_file has validation issues when built with GeekoDoc. It validates with DocBook though. Results might not look ideal."
+        [[ $validation_attempts -gt 1 ]] && echo "$dc_file has validation issues when trying to validate with GeekoDoc. It validates with DocBook though. Results might not look ideal."
         for format in $formats
           do
             format_subcommand="$format"

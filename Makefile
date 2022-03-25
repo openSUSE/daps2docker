@@ -19,9 +19,13 @@ PACKAGE       := daps2docker
 CDIR          := $(shell pwd)
 BUILD_DIR     := build
 CBUILD_DIR    := $(CDIR)/$(BUILD_DIR)
+EXECS         := daps2docker.sh d2d_runner.sh daps2docker-common
+CONFIG        := config
+FILES         := $(EXECS) $(CONFIG) README.md LICENSE
+SOURCES       := $(addprefix $(BUILD_DIR)/,$(FILES))
 
 # project version number
-VERSION       := 0.14
+VERSION       := 0.15
 
 .PHONY: all dist clean
 all: dist
@@ -32,7 +36,7 @@ build/%: % $(BUILD_DIR)
 $(INSTALL_DIR) $(BUILD_DIR):
 	@mkdir -p $@
 
-dist: build/daps2docker.sh build/d2d_runner.sh build/defaults build/README.md build/LICENSE
+dist: $(SOURCES)
 	@tar cfjhP $(PACKAGE)-$(VERSION).tar.bz2 \
 	  --transform 's:^$(CBUILD_DIR):$(PACKAGE)-$(VERSION):' \
 	  $(CBUILD_DIR)

@@ -25,6 +25,25 @@ to save you the hassles of setting up a documentation toolchain.
    * Alternatively, clone this repository: `git clone https://github.com/openSUSE/daps2docker`
 
 
+## Configuration
+
+Daps2docker allows to define variables in different configuration files.
+Similar to Git, you can use the following configuration files:
+
+* system-wide: `/etc/daps2docker/config`
+* user: `~/.config/daps2docker/config`
+* specific to a repository: `.git/daps2docker.conf`
+
+The priority raises from top to bottom. The Git repo configuration has the highest priority and overwrites any settings from config files of lower priorities.
+
+In most cases, it's recommended to copy the system-wide configuration into
+your home and adapt it to your needs:
+
+```bash
+mkdir -p ~/.config/daps2docker
+cp /etc/daps2docker/config ~/.config/daps2docker/config
+```
+
 ### First-Run Prerequisites
 
 On the first run, Docker or Podman needs to download a container

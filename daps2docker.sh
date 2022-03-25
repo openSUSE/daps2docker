@@ -6,27 +6,47 @@
 # A script which takes a DAPS build directory, loads it into a DAPS container,
 # builds it, and returns the directory with the built documentation.
 
+VERSION=0.15
+
 container_engine=docker
 [[ "$CONTAINER_ENGINE" == 'podman' ]] && container_engine=$CONTAINER_ENGINE
 [[ $CONTAINER_ENGINE != $container_engine && -n $CONTAINER_ENGINE ]] && \
-  echo "Using $container_engine instead of requested unsupported container engine \"$CONTAINER_ENGINE\"."
+  echo "[WARN] Using $container_engine instead of requested unsupported container engine \"$CONTAINER_ENGINE\"."
 minimum_podman_version=1.1.0
 
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
-
-. $mydir/defaults
-
-outdir=$(mktemp -d -p /tmp daps2docker-XXXXXXXX)
-
+# Our output directory:
+outdir=""
 
 error_exit() {
     # $1 - message string
     # $2 - error code (optional)
-    echo -e "(Exiting d2d) $1"
+    echo -e "[ERROR] $1"
     [[ $2 ]] && exit $2
     exit 1
 }
+
+# Source common functions and variables
+if [ -e $mydir/daps2docker-common ]; then
+  source $mydir/daps2docker-common
+elif [ -e /usr/share/daps2docker/daps2docker-common ]; then
+  source /usr/share/daps2docker/daps2docker-common
+else
+  error_exit "ERROR: no daps2docker-common found :-("
+fi
+
+
+# We use a cascade of config files. Later sourced files have a higher
+# priority. Content of files with a higher priority overwrites content
+# from files with lower priority.
+# If a file cannot be found, it's not an error and silently ignored.
+load_config_file $SYSTEM_CONFIGDIR/$DEFAULT_CONFIGNAME
+# Make fallback to Git repo, if we are using the script from a local checkout
+is_git_dir $mydir && load_config_file $mydir/$DEFAULT_CONFIGNAME
+#
+load_config_file $USER_CONFIGDIR/$DEFAULT_CONFIGNAME
+
 
 app_help() {
   echo "daps2docker / Build DAPS documentation in a container."
@@ -35,6 +55,8 @@ app_help() {
   echo "      # Build all DC files in DOC_DIR"
   echo "  (2) $0 [DC_FILE] [FORMAT]"
   echo "      # Build specific DC file as FORMAT"
+  echo "  (3) $0 --outputdir=/tmp/daps2docker-1 [DC_FILE] [FORMAT]"
+  echo "      # Build specific DC file(s) as FORMAT, but store output in a static directory"
   echo "If FORMAT is omitted, daps2docker will build: $formats."
   echo "Supported formats: ${!valid_formats[@]}."
   if [[ "$1" == "extended" ]]
@@ -44,11 +66,54 @@ app_help() {
       echo "  D2D_IMAGE=[CONTAINER_IMAGE_ID] $0 [...]"
       echo "      # Use the container image with the given ID instead of the default."
       echo "      # Note that the specified image must be available locally already."
+      echo
+      echo "  Found config files (in this order):"
+      echo "  => ${configfilelist[@]}"
   else
       echo ""
       echo "More? Use $0 --help-extended"
   fi
+  exit
 }
+
+#----------------
+# Parse the command line arguments
+
+ARGS=$(getopt -o h -l help,help-extended,outputdir: -n "$ME" -- "$@")
+
+eval set -- "$ARGS"
+while true ; do
+  case "$1" in
+    --help|-h)
+      app_help
+      ;;
+    --help-extended)
+      app_help extended
+      ;;
+    --outputdir)
+      outdir="$2"
+      shift 2
+      ;;
+    --) shift ; break ;;
+    *) error_exit "Wrong parameter: $1" ;;
+  esac
+done
+
+gitdir=$(get_toplevel_gitdir $1)
+load_config_file $gitdir/$GIT_DEFAULT_CONFIGNAME
+#
+# After we've loaded the last config file, we have a list in our
+# variable configfilelist
+
+echo "[INFO] Using conf files: ${configfilelist[@]}"
+
+if [ -z "$outdir" ]; then
+  outdir=$(mktemp -d -p /tmp daps2docker-XXXXXXXX)
+else
+  mkdir -p "$outdir" 2>/dev/null
+fi
+echo "[INFO] Using output directory $outdir"
+
 
 which $container_engine >/dev/null 2>/dev/null
 if [ $? -gt 0 ]
@@ -65,22 +130,13 @@ if [[ $container_engine == 'podman' ]]
     fi
 fi
 
-if [ $# -eq 0 ] || [[ $1 == '--help' ]] || [[ $1 == '-h' ]]
-  then
-    app_help
-    exit
-elif [[ $1 == '--help-extended' ]]
-  then
-    app_help extended
-    exit
-fi
 
 autoupdate=1
 if [[ ! -z "$D2D_IMAGE" ]] && [[ ! $(echo "$D2D_IMAGE" | sed -r 's=^([-_.a-zA-Z0-9]+(/[-_.a-zA-Z0-9]+)*(:[-_.a-zA-Z0-9]+)?|[0-9a-f]+)==') ]]
   then
     autoupdate=0
     containername=$D2D_IMAGE
-    echo "Using custom container image ID $containername."
+    echo "[INFO] Using custom container image ID $containername."
 elif [[ ! -z "$D2D_IMAGE" ]]
   then
     error_exit "$D2D_IMAGE is not a plausible container image ID."
@@ -95,15 +151,15 @@ if [ -d "$dir" ]
     if [[ $(ls -- $dir/DC-*) ]]
       then
         dc_files=$(ls -- $dir | grep 'DC-*')
-        echo -e "Building DC file(s): "$(echo -e -n "$dc_files" | tr '\n' ' ')
+        echo -e "[INFO] Building DC file(s): "$(echo -e -n "$dc_files" | tr '\n' ' ')
       else
-        error_exit "No DC files found in $dir."
+        error_exit "[ERROR] No DC files found in $dir."
     fi
   elif [ -f $dir ] && [[ $(basename -- $dir | grep '^DC-') ]]
   then
     dc_files=$(basename -- $dir)
     dir=$(dirname -- $dir)
-    echo -e "Building DC file: $dc_files"
+    echo -e "[INFO] Building DC file: $dc_files"
   else
     message_addendum=''
     [[ "$1" == '-d' || "$1" == '-m' ]] && message_addendum=" $1 is not required for daps2docker."
@@ -122,20 +178,17 @@ if [[ "$1" ]]
         error_exit "Requested format $1 is not supported.\nSupported formats: $format_string"
     fi
 fi
-echo "Building formats: $formats"
+echo "[INFO] Building formats: $formats"
 formats=$(echo "$formats" | sed 's/ /,/')
 
 if [[ "$container_engine" == "docker" ]]; then
-  # PAGER=cat means we avoid calling "less" here which would make it interactive
-  # and that is the last thing we want.
-  # FIXME: I am sure there is a better way to do this.
-  PAGER=cat systemctl status docker.service >/dev/null 2>/dev/null
+  systemctl is-active docker >/dev/null
   service_status=$?
   if [ $service_status -eq 3 ]
     then
       if [[ ! $EUID -eq 0 ]]
         then
-          echo "Docker service is not running. Give permission to start it."
+          echo "[HINT] Docker service is not running. Give permission to start it."
           sudo systemctl start docker.service
         else
           systemctl start docker.service

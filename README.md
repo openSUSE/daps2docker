@@ -32,7 +32,7 @@ Similar to Git, you can use the following configuration files:
 
 * system-wide: `/etc/daps2docker/config`
 * user: `~/.config/daps2docker/config`
-* specific to a repository: `.git/daps2docker.conf`
+* specific to a repository: `.daps2docker.conf`
 
 The priority raises from top to bottom. The Git repo configuration has the highest priority and overwrites any settings from config files of lower priorities.
 

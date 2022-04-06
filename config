@@ -1,5 +1,20 @@
 #! /bin/bash
-
+#
+# This is the configuration file for the daps2docker package
+#
+# This is the default configuration. To create a specific user configuration,
+# follow these steps:
+#
+# 1. Create a directory: mkdir -p ~/.config/daps2docker/
+# 2. Copy this file to your config dir:
+#    cp /etc/daps2docker/daps2docker.config ~/.config/daps2docker/
+# 3. Remove the valid_formats variable, in most cases you don't need it
+#    unless you want to configure a specific option.
+#    If you really want to change some options, add a line into your
+#    user config like this:
+#    valid_formats["html"]="... your new options ..."
+# 5. Save the file.
+#
 # For the moment, we support only a few options, namely:
 # * those that do not require extra parameters like file names, to simplify
 #   handling (FIXME...)
@@ -7,7 +22,8 @@
 #   is not part of the container)
 # * XSLT parameters are supported separately -> excluded
 # * --help does not generate a document -> excluded
-declare -A valid_formats
+
+# declare -A valid_formats
 valid_formats=(\
   ["bigfile"]="--novalid --norefcheck" \
   ["epub"]="--norefcheck" \
@@ -22,6 +38,8 @@ valid_formats=(\
   ["webhelp"]="--draft --norefcheck --nosearch --nostatic --remarks" \
   )
 
+# The formats to build
 formats="html,pdf"
 
+# The default container to use
 containername="susedoc/ci:latest"

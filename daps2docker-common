@@ -1,0 +1,44 @@
+#!/bin/bash
+#
+# This file is part of the daps2docker scripts
+# It contains common variables and 
+
+# --- Variables
+#
+SYSTEM_CONFIGDIR="/etc/daps2docker"
+USER_CONFIGDIR="$HOME/.config/daps2docker"
+DEFAULT_CONFIGNAME="config"
+GIT_DEFAULT_CONFIGNAME=".daps2docker.conf"
+
+# Declare some global arrays
+declare -A valid_formats
+declare -A configfilelist
+index=0
+
+# --- Functions
+#
+load_config_file() {
+    # $1 the config file to be loaded
+    #
+    local config=$1
+    if [[ -e $config ]]; then
+        source "$config"
+        index=$((index + 1))
+        configfilelist[$index]=$config
+        echo "[INFO] Loading config file \"$config\"..."
+    fi
+}
+
+get_toplevel_gitdir() {
+    # $1 the directory to check if it's a local Git repo
+    local DIR=${1:-.}
+    # If we have a file, use the directory only
+    [ -f $DIR ] && DIR=$(dirname $DIR)
+
+    git -C ${DIR} rev-parse --show-toplevel
+}
+
+is_git_dir() {
+    # $1 the directory to check if it's a local Git repo
+    get_toplevel_gitdir ${1:-.} 1>/dev/null 2>&1; return $?
+}

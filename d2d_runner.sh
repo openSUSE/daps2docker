@@ -7,6 +7,28 @@
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
 
+error_exit() {
+    # $1 - message string
+    # $2 - error code (optional)
+    echo -e "(Exiting d2d_runner) $1"
+    stop_container
+    [[ $2 ]] && exit $2
+    exit 1
+}
+
+# Source common functions and variables
+if [ -e $mydir/daps2docker-common ]; then
+  source $mydir/daps2docker-common
+elif [ -e /usr/share/daps2docker/daps2docker-common ]; then
+  source /usr/share/daps2docker/daps2docker-common
+else
+  error_exit "ERROR: no daps2docker-common found :-("
+fi
+
+# source $mydir/daps2docker-common || error_exit "ERROR: no daps2docker-common :-("
+
+# declare -A valid_formats
+
 app_help() {
   echo "$0 / Build DAPS documentation in a container (inner script)."
   echo "Unlike daps2docker itself, this script assumes a few things:"
@@ -35,14 +57,6 @@ app_help() {
   echo "                        # DC/XML/AsciiDoc files to build from"
 }
 
-error_exit() {
-    # $1 - message string
-    # $2 - error code (optional)
-    echo -e "(Exiting d2d_runner) $1"
-    stop_container
-    [[ $2 ]] && exit $2
-    exit 1
-}
 
 format_filelists() {
   mkdir -p "$outdir"
@@ -91,7 +105,7 @@ build_dapsparameters() {
     params=$(cat $1 | sed -n '/./ p' | sort -u)
     paramlist=$(comm -12 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
     paramlist_dropped=$(comm -13 <(echo -e "$valid_params") <(echo -e "$params") | tr '\n' ' ')
-    [[ $(echo "$paramlist_dropped" | sed -r 's/\s//g') ]] && >&2 echo "The following DAPS parameters are not supported either by DAPS or by daps2docker and have been dropped: $paramlist_dropped"
+    [[ $(echo "$paramlist_dropped" | sed -r 's/\s//g') ]] && >&2 echo "[WARN] The following DAPS parameters are not supported either by DAPS or by daps2docker and have been dropped: $paramlist_dropped"
     echo "$paramlist"
 }
 
@@ -117,9 +131,41 @@ stop_container() {
     fi
 }
 
-. $mydir/defaults
+load_config_file() {
+    # $1 the config file to be loaded
+    #
+    local config=$1
+    if [[ -e $config ]]; then
+        source "$config"
+        index=$((index + 1))
+        configfilelist[$index]=$config
+    fi
+}
+
+is_git_dir() {
+    # $1 the directory to check if it's a local Git repo
+    git -C $1 rev-parse 2>/dev/null; return $?
+}
+
+# We use a cascade of config files. Later sourced files have a higher
+# priority. Content of files with a higher priority overwrites content
+# from files with lower priority.
+# If a file cannot be found, it's not an error and silently ignored.
+
+# We first need to load the array; we need to handle it differently from
+# the rest
+# load_config_file $SYSTEM_CONFIGDIR/default
+# load_config_file $mydir/default
+
+load_config_file $SYSTEM_CONFIGDIR/$DEFAULT_CONFIGNAME
+# Make fallback to Git repo, if we are using the script from a local checkout
+is_git_dir $mydir && load_config_file $mydir/$DEFAULT_CONFIGNAME
+#
+load_config_file $USER_CONFIGDIR/$DEFAULT_CONFIGNAME
+load_config_file .git/$GIT_DEFAULT_CONFIGNAME
 
 container_engine=${CONTAINER_ENGINE:-docker}
+containername=${CONTAINER_NAME:-$containername}
 
 user=$(whoami)
 user_change=0
@@ -208,6 +254,14 @@ for i in "$@"
     esac
 done
 
+echo "[INFO] Config parameters"
+echo "   config files: ${configfilelist[@]}"
+echo "      container: $containername"
+echo "  valid formats:"
+for item in "${!valid_formats[@]}" ; do
+    echo "    $item = \"${valid_formats[$item]}\""
+done
+echo "---"
 
 # Command line error handling
 
@@ -304,7 +358,7 @@ if [ ! $? -eq 0 ]
 fi
 
 # first get the name of the container, then get the ID of the Daps container
-echo "Container ID: $container_id"
+echo "[INFO] Container ID: $container_id"
 
 
 # only copy the stuff we want -- not sure whether that saves any time, but it
@@ -334,13 +388,19 @@ done
 
 if [[ $info -eq 1 ]]
   then
-    echo "Package versions in container:"
-    "$container_engine" exec $container_id rpm -q --qf '- %{NAME} %{VERSION}\n' \
+    QUERYFORMAT='       - %{NAME} %{VERSION}\n'
+    echo "[INFO] Package versions in container:"
+    "$container_engine" exec $container_id rpm -q --qf "$QUERYFORMAT" \
       daps \
       libxslt-tools libxml2-tools xmlgraphics-fop \
       docbook_5 docbook_4 geekodoc novdoc \
       docbook-xsl-stylesheets docbook5-xsl-stylesheets \
       suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets
+
+    # We don't rely here on a specific name (like ruby2.5-rubygem-asciidoctor)
+    # which can change in the future.
+    "$container_engine" exec $container_id rpm -q \
+       --qf "$QUERYFORMAT" --whatprovides "rubygem(asciidoctor)"
 fi
 
 # check whether we can/have to disable table validation (DAPS 3.3.0 is the first
@@ -360,7 +420,7 @@ for dc_file in $dcfiles
   do
     dm="-d"
     [[ ! $(echo "$dc_file" | sed -r 's/^(xml|adoc)\///') ]] && dm="-m"
-    echo "Building $dc_file"
+    echo "[INFO] Building $dc_file"
 
     # This should be in there anyway, we just write it again just in case the
     # container author has forgotten it.

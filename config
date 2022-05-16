@@ -36,10 +36,17 @@ valid_formats=(\
   ["single-html"]="--draft --meta --norefcheck --nostatic --remarks" \
   ["text"]="--ignore-styleroot --norefcheck" \
   ["webhelp"]="--draft --norefcheck --nosearch --nostatic --remarks" \
+  ["validate"]="" \
   )
 
 # The formats to build
-formats="html,pdf"
+# Supported formats: html online-docs pdf package-html webhelp
+#                    single-html text epub package-pdf package-src bigfile
+formats="validate,bigfile,html,pdf"
+
+# The default container engine used
+# Supported values: podman, docker (default "docker")
+container_engine="docker"
 
 # The default container to use
 containername="susedoc/ci:latest"

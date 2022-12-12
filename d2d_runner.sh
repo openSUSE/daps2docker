@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 # daps2docker Docker/Podman Helper
 # This script runs all the Docker/Podman related commands, having this in a separate

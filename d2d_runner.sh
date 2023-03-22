@@ -378,7 +378,7 @@ echo "[INFO] Container ID: $container_id"
 # something in it already: after the build we're copying the build dir back to
 # the host and then having additional stuff there is ... confusing)
 
-for subdir in "images/src" "adoc" "xml"
+for subdir in "articles" "common" "concepts" "glues" "references" "tasks" "images" "adoc" "xml" "snippets"
   do
     if [[ -d "$dir/$subdir" ]]
       then

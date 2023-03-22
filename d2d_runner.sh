@@ -7,6 +7,9 @@
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
 
+# The DAPS command
+daps="daps"
+
 error_exit() {
     # $1 - message string
     # $2 - error code (optional)
@@ -43,6 +46,7 @@ app_help() {
   echo "  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)"
   echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
   echo "${!valid_formats[@]}" | fold -w 54 -s | sed 's/^/                          /'
+  echo "  -g=0/1                # debug on? default 0 (off)"
   echo "  -v=0/1                # validate before building? default: 1 (on)"
   echo "  -t=0/1                # run table validation? default: 1 (on)"
   echo "  -d=PARAMETER_FILE     # file with extra DAPS parameters"
@@ -189,6 +193,8 @@ createbigfile=0
 
 info=1
 
+debug=0
+
 createjsonfilelist=0
 
 dcfiles=
@@ -229,6 +235,9 @@ for i in "$@"
       ;;
       -d=*|--daps-param-file=*)
         dapsparameterfile="${i#*=}"
+        ;;
+      -g=*|--debug=*)
+        debug="${i#*=}"
       ;;
       -v=*|--auto-validate=*)
         autovalidate="${i#*=}"
@@ -267,7 +276,6 @@ echo "---"
 
 [[ $unknown ]] && error_exit "Your command line contained the following unknown option(s):\n$unknown"
 
-
 [[ ! $dir ]] && error_exit "No input directory set."
 [[ -f $dir ]] && error_exit "Input directory \"$dir\" already exists but is a regular file."
 [[ ! -d $dir ]] && error_exit "Input directory \"$dir\" does not exist."
@@ -300,6 +308,8 @@ done
 
 ([[ $dapsparameterfile ]] && [[ ! -f $dapsparameterfile ]]) && error_exit "DAPS parameter file \"$dapsparameterfile\" does not exist."
 
+[[ ! $(is_bool "$debug") ]] && error_exit "Debug parameter ($debug) is not 0 or 1."
+
 [[ ! $(is_bool "$autovalidate") ]] && error_exit "Automatic validation parameter ($autovalidate) is not 0 or 1."
 
 [[ ! $(is_bool "$validatetables") ]] && error_exit "Table validation parameter ($validatetables) is not 0 or 1."
@@ -309,7 +319,6 @@ done
 [[ ! $(is_bool "$createjsonfilelist") ]] && error_exit "filelist.json creation parameter ($createjsonfilelist) is not 0 or 1."
 
 [[ ! $(is_bool "$info") ]] && error_exit "Extra information parameter ($info) is not 0 or 1."
-
 
 if [[ ! $dcfiles ]]
   then
@@ -331,6 +340,9 @@ containertempdir=/daps_temp-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c10)
 containersourcetempdir="$containertempdir/source"
 
 [[ $autoupdate -eq 1 ]] && "$container_engine" pull $containername
+
+# Enable debugging with -g=1
+[[ 1 -eq $debug ]] && daps="$daps --debug"
 
 # If the container does not exist, this command will still output "[]", hence
 # the sed. NB: We need to do this after the pull, as the pull might just
@@ -366,7 +378,7 @@ echo "[INFO] Container ID: $container_id"
 # something in it already: after the build we're copying the build dir back to
 # the host and then having additional stuff there is ... confusing)
 
-for subdir in "images/src" "adoc" "xml"
+for subdir in "articles" "common" "concepts" "glues" "references" "tasks" "images" "adoc" "xml" "snippets"
   do
     if [[ -d "$dir/$subdir" ]]
       then
@@ -433,7 +445,7 @@ for dc_file in $dcfiles
       then
       "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
 
-      validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
+      validation=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
       validation_code=$?
 
       validation_attempts=1
@@ -441,7 +453,7 @@ for dc_file in $dcfiles
           then
             # Try again but with the DocBook upstream
             "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
-            validation=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
+            validation=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
             validation_code=$?
             validation_attempts=2
         fi
@@ -468,8 +480,8 @@ for dc_file in $dcfiles
             xsltparameters=
             [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format_subcommand)
             [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)
-            echo -e "daps $dm $containersourcetempdir/$dc_file $format_subcommand $dapsparameters $xsltparameters"
-            output=$("$container_engine" exec $container_id daps $dm $containersourcetempdir/$dc_file $format_subcommand "$table_valid_param" $dapsparameters $xsltparameters)
+            echo -e "$daps $dm $containersourcetempdir/$dc_file $format_subcommand $dapsparameters $xsltparameters"
+            output=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file $format_subcommand "$table_valid_param" $dapsparameters $xsltparameters)
             build_code=$?
             if [[ "$build_code" -gt 0 ]]
               then
@@ -492,7 +504,7 @@ for dc_file in $dcfiles
                 # build regular output.
                 if [[ $createbigfile -eq 1 ]]
                   then
-                    output=$($container_engine exec $container_id daps $dm $containersourcetempdir/$dc_file bigfile "$table_valid_param")
+                    output=$($container_engine exec $container_id $daps $dm $containersourcetempdir/$dc_file bigfile "$table_valid_param")
                     output_path=$(echo "$output" | sed -r -e "s#^$containersourcetempdir/build#$outdir#")
                     filelist+="$output_path "
                     json_line "$dc_file" "bigfile" "succeeded" "$output_path"

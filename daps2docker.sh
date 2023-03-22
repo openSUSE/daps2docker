@@ -6,7 +6,7 @@
 # A script which takes a DAPS build directory, loads it into a DAPS container,
 # builds it, and returns the directory with the built documentation.
 
-VERSION=0.15
+VERSION=0.18
 
 container_engine=docker
 [[ "$CONTAINER_ENGINE" == 'podman' ]] && container_engine=$CONTAINER_ENGINE
@@ -18,6 +18,9 @@ me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
 # Our output directory:
 outdir=""
+
+# debug is off by default
+debug=0
 
 error_exit() {
     # $1 - message string
@@ -69,6 +72,9 @@ app_help() {
       echo
       echo "  Found config files (in this order):"
       echo "  => ${configfilelist[@]}"
+      echo
+      echo "--debug"
+      echo "  Enable debugging mode (very verbose)"
   else
       echo ""
       echo "More? Use $0 --help-extended"
@@ -79,11 +85,15 @@ app_help() {
 #----------------
 # Parse the command line arguments
 
-ARGS=$(getopt -o h -l help,help-extended,outputdir: -n "$ME" -- "$@")
+ARGS=$(getopt -o h -l debug,help,help-extended,outputdir: -n "$ME" -- "$@")
 
 eval set -- "$ARGS"
 while true ; do
-  case "$1" in
+    case "$1" in
+    --debug)
+      debug=1
+      shift
+      ;;
     --help|-h)
       app_help
       ;;
@@ -202,13 +212,13 @@ fi
 # Find out if we need elevated privileges (very likely, as that is the default)
 if [[ $(getent group docker | grep "\b$(whoami)\b" 2>/dev/null) && $container_engine == 'docker' ]] || [[ $EUID -eq 0 ]]
   then
-    $mydir/d2d_runner.sh -e="$container_engine" -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
+    $mydir/d2d_runner.sh -e="$container_engine" -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" -g=$debug $dc_files
   else
     if [[ "$container_engine" == "docker" ]]; then
       echo -n "Your user account is not part of the group 'docker'."
     fi
     echo "$container_engine needs to be run as root."
-    sudo $mydir/d2d_runner.sh -e="$container_engine" -s=$(whoami) -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" $dc_files
+    sudo $mydir/d2d_runner.sh -e="$container_engine" -s=$(whoami) -o="$outdir" -i="$dir" -f="$formats" -c="$containername" -u="$autoupdate" -g=$debug $dc_files
 fi
 if [[ -d "$outdir" ]] && [[ -f "$outdir/filelist" ]]
   then

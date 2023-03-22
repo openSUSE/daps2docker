@@ -25,7 +25,7 @@ FILES         := $(EXECS) $(CONFIG) README.md LICENSE
 SOURCES       := $(addprefix $(BUILD_DIR)/,$(FILES))
 
 # project version number
-VERSION       := 0.16
+VERSION       := 0.18
 
 .PHONY: all dist clean
 all: dist

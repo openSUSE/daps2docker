@@ -400,7 +400,7 @@ done
 
 if [[ $info -eq 1 ]]
   then
-    QUERYFORMAT='       - %{NAME} %{VERSION}\n'
+    QUERYFORMAT='       - %{NAME}: %{VERSION}\n'
     echo "[INFO] Package versions in container:"
     "$container_engine" exec $container_id rpm -q --qf "$QUERYFORMAT" \
       daps \

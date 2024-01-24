@@ -407,7 +407,8 @@ if [[ $info -eq 1 ]]
       libxslt-tools libxml2-tools xmlgraphics-fop \
       docbook_5 docbook_4 geekodoc novdoc \
       docbook-xsl-stylesheets docbook5-xsl-stylesheets \
-      suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets
+      suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets \
+      libxml2-tools libxslt-tools jing
 
     # We don't rely here on a specific name (like ruby2.5-rubygem-asciidoctor)
     # which can change in the future.

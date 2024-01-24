@@ -86,4 +86,4 @@ Take a look!
 * For the container image itself, see
   [Docker Hub](https://hub.docker.com/r/susedoc/ci).
 * For the container definition, see
-  [the doc-ci repository](https://github.com/openSUSE/doc-ci/tree/develop/build-docker-ci).
+  [the doc-ci repository](https://github.com/openSUSE/doc-ci/tree/gha-workflow-example).

@@ -478,7 +478,7 @@ for dc_file in $dcfiles
           do
             format_subcommand="$format"
             [[ $format == 'single-html' ]] && format_subcommand='html --single'
-            dapsparameters=
+            dapsparameters="--stringparam=\"dcfilename=$dc_file\""
             xsltparameters=
             [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format_subcommand)
             [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)

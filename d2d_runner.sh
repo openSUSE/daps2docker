@@ -439,7 +439,7 @@ for dc_file in $dcfiles
     # This should be in there anyway, we just write it again just in case the
     # container author has forgotten it.
     echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
-    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.2/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
+    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.2/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db
 
     validation=
     validation_code=0
@@ -454,7 +454,7 @@ for dc_file in $dcfiles
         if [[ "$validation_code" -gt 0 ]]
           then
             # Try again but with the DocBook upstream
-            "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+            "$container_engine" cp $localtempdir/d2d-dapsrc-db $container_id:/root/.config/daps/dapsrc
             validation=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
             validation_code=$?
             validation_attempts=2
@@ -462,7 +462,7 @@ for dc_file in $dcfiles
       else
         # Make sure we are not using GeekoDoc in this case, to provoke lowest
         # number of build failures
-        "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+        "$container_engine" cp $localtempdir/d2d-dapsrc-db $container_id:/root/.config/daps/dapsrc
     fi
     if [[ "$validation_code" -gt 0 ]]
       then

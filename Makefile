@@ -6,6 +6,9 @@
 # Stefan Knorr <sknorr@suse.de>
 #
 
+# project version number
+VERSION       := 0.19
+
 ifndef PREFIX_BIN
   PREFIX := /usr/bin
 endif
@@ -23,9 +26,6 @@ EXECS         := daps2docker.sh d2d_runner.sh daps2docker-common
 CONFIG        := config
 FILES         := $(EXECS) $(CONFIG) README.md LICENSE
 SOURCES       := $(addprefix $(BUILD_DIR)/,$(FILES))
-
-# project version number
-VERSION       := 0.18
 
 .PHONY: all dist clean
 all: dist

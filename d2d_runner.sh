@@ -438,7 +438,7 @@ for dc_file in $dcfiles
     # This should be in there anyway, we just write it again just in case the
     # container author has forgotten it.
     echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
-    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
+    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.2/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
 
     validation=
     validation_code=0

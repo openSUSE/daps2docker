@@ -358,6 +358,7 @@ container_id=$( \
   "$container_engine" run \
     --detach \
     --mount type=bind,source="$localtempdir",target="$containertempdir" \
+    --mount type=bind,source=/tmp,target=/tmp \
     "$containername" \
     tail -f /dev/null \
   )

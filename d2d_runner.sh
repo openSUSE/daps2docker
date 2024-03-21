@@ -264,6 +264,7 @@ for i in "$@"
 done
 
 echo "[INFO] Config parameters"
+echo "   command line: $@"
 echo "   config files: ${configfilelist[@]}"
 echo "      container: $containername"
 echo "  valid formats:"

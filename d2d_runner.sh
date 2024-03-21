@@ -254,6 +254,9 @@ for i in "$@"
       -n=*|--info=*)
         info="${i#*=}"
       ;;
+      -S|--stitchfile=*)
+        stitchfile="${i#*=}"
+      ;;
       DC-*|xml/*.xml|adoc/*.adoc)
         dcfiles+="${i#*=} "
       ;;

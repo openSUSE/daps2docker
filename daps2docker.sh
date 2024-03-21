@@ -6,7 +6,7 @@
 # A script which takes a DAPS build directory, loads it into a DAPS container,
 # builds it, and returns the directory with the built documentation.
 
-VERSION=0.18
+VERSION=0.19
 
 container_engine=docker
 [[ "$CONTAINER_ENGINE" == 'podman' ]] && container_engine=$CONTAINER_ENGINE

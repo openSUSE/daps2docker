@@ -33,32 +33,38 @@ fi
 # declare -A valid_formats
 
 app_help() {
-  echo "$0 / Build DAPS documentation in a container (inner script)."
-  echo "Unlike daps2docker itself, this script assumes a few things:"
-  echo "  * [docker] the Docker service is running"
-  echo "  * [docker] the current user is allowed to run Docker"
-  echo "  * there is an empty output directory"
-  echo "In exchange, you can run relatively arbitrary DAPS commands."
-  echo ""
-  echo "Parameters (* mandatory):"
-  echo "  -e=CONTAINER_ENGINE   # *prefered engine to run the containers (docker|podman)"
-  echo "  -i=INPUT_PATH         # *path to input directory"
-  echo "  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)"
-  echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
-  echo "${!valid_formats[@]}" | fold -w 54 -s | sed 's/^/                          /'
-  echo "  -g=0/1                # debug on? default 0 (off)"
-  echo "  -v=0/1                # validate before building? default: 1 (on)"
-  echo "  -t=0/1                # run table validation? default: 1 (on)"
-  echo "  -d=PARAMETER_FILE     # file with extra DAPS parameters"
-  echo "  -x=PARAMETER_FILE     # file with extra XSLT processor parameters"
-  echo "  -c=DOCKER_IMAGE       # container image for building"
-  echo "  -u=0/1                # update container image? default: 1 (on)"
-  echo "  -s=USER_NAME          # chown output files to this user"
-  echo "  -b=0/1                # create bigfile. default: 0 (off)"
-  echo "  -j=0/1                # create filelist.json (depends on jq). default: 0 (off)"
-  echo "  -n=0/1                # show extra information? default: 1 (on)"
-  echo "  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc"
-  echo "                        # DC/XML/AsciiDoc files to build from"
+  cat << EOF
+$0 / Build DAPS documentation in a container (inner script).
+Unlike daps2docker itself, this script assumes a few things:
+
+  * [docker] the Docker service is running
+  * [docker] the current user is allowed to run Docker
+  * there is an empty output directory
+
+In exchange, you can run relatively arbitrary DAPS commands.
+
+Mandatory parameters:
+  -e=CONTAINER_ENGINE   prefered engine to run the containers (docker|podman)
+  -i=INPUT_PATH         path to input directory"
+  -o=OUTPUT_PATH        path to output directory (directory should be empty)
+  -f=FORMAT1[,FORMAT2]  formats to build; recognized formats:
+                        ${!valid_formats[@]}
+
+Optional parameters:
+  -g=0/1                debug on? default 0 (off)"
+  -v=0/1                validate before building? default: 1 (on)
+  -t=0/1                run table validation? default: 1 (on)
+  -d=PARAMETER_FILE     file with extra DAPS parameters
+  -x=PARAMETER_FILE     file with extra XSLT processor parameters
+  -c=DOCKER_IMAGE       container image for building"
+  -u=0/1                update container image? default: 1 (on)
+  -s=USER_NAME          chown output files to this user
+  -b=0/1                create bigfile. default: 0 (off)
+  -j=0/1                create filelist.json (depends on jq). default: 0 (off)
+  -n=0/1                show extra information? default: 1 (on)
+  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc
+                        DC/XML/AsciiDoc files to build from
+EOF
 }
 
 
@@ -254,6 +260,9 @@ for i in "$@"
       -n=*|--info=*)
         info="${i#*=}"
       ;;
+      -S|--stitchfile=*)
+        stitchfile="${i#*=}"
+      ;;
       DC-*|xml/*.xml|adoc/*.adoc)
         dcfiles+="${i#*=} "
       ;;
@@ -264,6 +273,7 @@ for i in "$@"
 done
 
 echo "[INFO] Config parameters"
+echo "   command line: $@"
 echo "   config files: ${configfilelist[@]}"
 echo "      container: $containername"
 echo "  valid formats:"
@@ -358,6 +368,8 @@ container_id=$( \
   "$container_engine" run \
     --detach \
     --mount type=bind,source="$localtempdir",target="$containertempdir" \
+    --mount type=bind,source=/tmp,target=/tmp \
+    --name "$dcfiles" \
     "$containername" \
     tail -f /dev/null \
   )
@@ -402,18 +414,15 @@ if [[ $info -eq 1 ]]
   then
     QUERYFORMAT='       - %{NAME}: %{VERSION}\n'
     echo "[INFO] Package versions in container:"
-    "$container_engine" exec $container_id rpm -q --qf "$QUERYFORMAT" \
-      daps \
-      libxslt-tools libxml2-tools xmlgraphics-fop \
-      docbook_5 docbook_4 geekodoc novdoc \
-      docbook-xsl-stylesheets docbook5-xsl-stylesheets \
-      suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets \
-      libxml2-tools libxslt-tools jing
-
     # We don't rely here on a specific name (like ruby2.5-rubygem-asciidoctor)
     # which can change in the future.
-    "$container_engine" exec $container_id rpm -q \
-       --qf "$QUERYFORMAT" --whatprovides "rubygem(asciidoctor)"
+    "$container_engine" exec $container_id rpm -q --qf "$QUERYFORMAT" \
+      daps \
+      libxslt-tools libxml2-tools jing \
+      inkscape xmlgraphics-fop xmlgraphics-batik \
+      docbook_5 docbook_4 geekodoc novdoc \
+      docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets \
+      $(rpm -q --whatprovides --qf "%{name}\n" 'rubygem(asciidoctor)')
 fi
 
 # check whether we can/have to disable table validation (DAPS 3.3.0 is the first
@@ -438,7 +447,7 @@ for dc_file in $dcfiles
     # This should be in there anyway, we just write it again just in case the
     # container author has forgotten it.
     echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
-    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
+    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.2/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db
 
     validation=
     validation_code=0
@@ -453,7 +462,7 @@ for dc_file in $dcfiles
         if [[ "$validation_code" -gt 0 ]]
           then
             # Try again but with the DocBook upstream
-            "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+            "$container_engine" cp $localtempdir/d2d-dapsrc-db $container_id:/root/.config/daps/dapsrc
             validation=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
             validation_code=$?
             validation_attempts=2
@@ -461,7 +470,7 @@ for dc_file in $dcfiles
       else
         # Make sure we are not using GeekoDoc in this case, to provoke lowest
         # number of build failures
-        "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+        "$container_engine" cp $localtempdir/d2d-dapsrc-db $container_id:/root/.config/daps/dapsrc
     fi
     if [[ "$validation_code" -gt 0 ]]
       then
@@ -477,7 +486,7 @@ for dc_file in $dcfiles
           do
             format_subcommand="$format"
             [[ $format == 'single-html' ]] && format_subcommand='html --single'
-            dapsparameters=
+            dapsparameters="--stringparam=\"dcfilename=$dc_file\""
             xsltparameters=
             [[ $dapsparameterfile ]] && dapsparameters+=$(build_dapsparameters $dapsparameterfile $format_subcommand)
             [[ $xsltparameterfile ]] && xsltparameters+=$(build_xsltparameters $xsltparameterfile)

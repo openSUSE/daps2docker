@@ -360,6 +360,7 @@ container_id=$( \
     --detach \
     --mount type=bind,source="$localtempdir",target="$containertempdir" \
     --mount type=bind,source=/tmp,target=/tmp \
+    --name "$dcfiles" \
     "$containername" \
     tail -f /dev/null \
   )

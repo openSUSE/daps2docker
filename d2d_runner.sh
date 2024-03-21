@@ -403,6 +403,8 @@ if [[ $info -eq 1 ]]
   then
     QUERYFORMAT='       - %{NAME}: %{VERSION}\n'
     echo "[INFO] Package versions in container:"
+    # We don't rely here on a specific name (like ruby2.5-rubygem-asciidoctor)
+    # which can change in the future.
     "$container_engine" exec $container_id rpm -q --qf "$QUERYFORMAT" \
       daps \
       libxslt-tools libxml2-tools jing \
@@ -410,11 +412,6 @@ if [[ $info -eq 1 ]]
       docbook_5 docbook_4 geekodoc novdoc \
       docbook-xsl-stylesheets docbook5-xsl-stylesheets suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets \
       $(rpm -q --whatprovides --qf "%{name}\n" 'rubygem(asciidoctor)')
-
-    # We don't rely here on a specific name (like ruby2.5-rubygem-asciidoctor)
-    # which can change in the future.
-    # "$container_engine" exec $container_id rpm -q \
-    #   --qf "$QUERYFORMAT" --whatprovides "rubygem(asciidoctor)"
 fi
 
 # check whether we can/have to disable table validation (DAPS 3.3.0 is the first

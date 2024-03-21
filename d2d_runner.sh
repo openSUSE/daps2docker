@@ -33,32 +33,38 @@ fi
 # declare -A valid_formats
 
 app_help() {
-  echo "$0 / Build DAPS documentation in a container (inner script)."
-  echo "Unlike daps2docker itself, this script assumes a few things:"
-  echo "  * [docker] the Docker service is running"
-  echo "  * [docker] the current user is allowed to run Docker"
-  echo "  * there is an empty output directory"
-  echo "In exchange, you can run relatively arbitrary DAPS commands."
-  echo ""
-  echo "Parameters (* mandatory):"
-  echo "  -e=CONTAINER_ENGINE   # *prefered engine to run the containers (docker|podman)"
-  echo "  -i=INPUT_PATH         # *path to input directory"
-  echo "  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)"
-  echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
-  echo "${!valid_formats[@]}" | fold -w 54 -s | sed 's/^/                          /'
-  echo "  -g=0/1                # debug on? default 0 (off)"
-  echo "  -v=0/1                # validate before building? default: 1 (on)"
-  echo "  -t=0/1                # run table validation? default: 1 (on)"
-  echo "  -d=PARAMETER_FILE     # file with extra DAPS parameters"
-  echo "  -x=PARAMETER_FILE     # file with extra XSLT processor parameters"
-  echo "  -c=DOCKER_IMAGE       # container image for building"
-  echo "  -u=0/1                # update container image? default: 1 (on)"
-  echo "  -s=USER_NAME          # chown output files to this user"
-  echo "  -b=0/1                # create bigfile. default: 0 (off)"
-  echo "  -j=0/1                # create filelist.json (depends on jq). default: 0 (off)"
-  echo "  -n=0/1                # show extra information? default: 1 (on)"
-  echo "  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc"
-  echo "                        # DC/XML/AsciiDoc files to build from"
+  cat << EOF
+$0 / Build DAPS documentation in a container (inner script).
+Unlike daps2docker itself, this script assumes a few things:
+
+  * [docker] the Docker service is running
+  * [docker] the current user is allowed to run Docker
+  * there is an empty output directory
+
+In exchange, you can run relatively arbitrary DAPS commands.
+
+Mandatory parameters:
+  -e=CONTAINER_ENGINE   prefered engine to run the containers (docker|podman)
+  -i=INPUT_PATH         path to input directory"
+  -o=OUTPUT_PATH        path to output directory (directory should be empty)
+  -f=FORMAT1[,FORMAT2]  formats to build; recognized formats:
+                        ${!valid_formats[@]}
+
+Optional parameters:
+  -g=0/1                debug on? default 0 (off)"
+  -v=0/1                validate before building? default: 1 (on)
+  -t=0/1                run table validation? default: 1 (on)
+  -d=PARAMETER_FILE     file with extra DAPS parameters
+  -x=PARAMETER_FILE     file with extra XSLT processor parameters
+  -c=DOCKER_IMAGE       container image for building"
+  -u=0/1                update container image? default: 1 (on)
+  -s=USER_NAME          chown output files to this user
+  -b=0/1                create bigfile. default: 0 (off)
+  -j=0/1                create filelist.json (depends on jq). default: 0 (off)
+  -n=0/1                show extra information? default: 1 (on)
+  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc
+                        DC/XML/AsciiDoc files to build from
+EOF
 }
 
 

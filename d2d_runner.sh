@@ -372,21 +372,17 @@ fi
 # first get the name of the container, then get the ID of the Daps container
 echo "[INFO] Container ID: $container_id"
 
+# copy all directories plus DC-file from the sourcedir
+# except the build/ dir (if present)
 
-# only copy the stuff we want -- not sure whether that saves any time, but it
-# avoids copying the build dir (which avoids confusing users if there is
-# something in it already: after the build we're copying the build dir back to
-# the host and then having additional stuff there is ... confusing)
-
-for subdir in "articles" "common" "concepts" "glues" "references" "tasks" "images" "adoc" "xml" "snippets"
+for sourcedir in "$dir"/*/
   do
-    if [[ -d "$dir/$subdir" ]]
-      then
-        mkdir -p "$localsourcetempdir/$subdir"
-        # NB: we're resolving symlinks here which is important especially for
-        # translated documents
-        cp -rL "$dir/$subdir/." "$localsourcetempdir/$subdir"
-    fi
+    subdir=$(basename "$sourcedir")
+    [[ $subdir = "build" ]] && continue
+    mkdir -p "$localsourcetempdir/$subdir"
+    # NB: we're resolving symlinks here which is important especially for
+    # translated documents
+    cp -rL "$dir/$subdir/." "$localsourcetempdir/$subdir"
 done
 for dc in "$dir"/DC-*
   do

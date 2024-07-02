@@ -6,6 +6,9 @@
 # Stefan Knorr <sknorr@suse.de>
 #
 
+# project version number
+VERSION       := 0.20
+
 ifndef PREFIX_BIN
   PREFIX := /usr/bin
 endif
@@ -24,8 +27,6 @@ CONFIG        := config
 FILES         := $(EXECS) $(CONFIG) README.md LICENSE
 SOURCES       := $(addprefix $(BUILD_DIR)/,$(FILES))
 
-# project version number
-VERSION       := 0.19
 
 .PHONY: all dist clean
 all: dist

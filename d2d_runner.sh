@@ -404,7 +404,8 @@ if [[ $info -eq 1 ]]
       docbook_5 docbook_4 geekodoc novdoc \
       docbook-xsl-stylesheets docbook5-xsl-stylesheets \
       suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets \
-      libxml2-tools libxslt-tools jing
+      libxml2-tools libxslt-tools jing \
+      google-noto-sans-jp-fonts google-noto-sans-kr-fonts google-noto-sans-sc-bold-fonts google-noto-sans-tc-bold-fonts
 
     # We don't rely here on a specific name (like ruby2.5-rubygem-asciidoctor)
     # which can change in the future.

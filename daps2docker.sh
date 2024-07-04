@@ -6,7 +6,7 @@
 # A script which takes a DAPS build directory, loads it into a DAPS container,
 # builds it, and returns the directory with the built documentation.
 
-VERSION=0.18
+VERSION=0.21
 
 container_engine=docker
 [[ "$CONTAINER_ENGINE" == 'podman' ]] && container_engine=$CONTAINER_ENGINE
@@ -52,16 +52,30 @@ load_config_file $USER_CONFIGDIR/$DEFAULT_CONFIGNAME
 
 
 app_help() {
-  echo "daps2docker / Build DAPS documentation in a container."
-  echo "Usage:"
-  echo "  (1) $0 [DOC_DIR] [FORMAT]"
-  echo "      # Build all DC files in DOC_DIR"
-  echo "  (2) $0 [DC_FILE] [FORMAT]"
-  echo "      # Build specific DC file as FORMAT"
-  echo "  (3) $0 --outputdir=/tmp/daps2docker-1 [DC_FILE] [FORMAT]"
-  echo "      # Build specific DC file(s) as FORMAT, but store output in a static directory"
-  echo "If FORMAT is omitted, daps2docker will build: $formats."
-  echo "Supported formats: ${!valid_formats[@]}."
+cat << EOF
+daps2docker / Build DAPS documentation in a container.
+
+Usage:
+  (1) $0 [DOC_DIR] [FORMAT]
+     # Build all DC files in DOC_DIR
+  (2) $0 [DC_FILE] [FORMAT]
+     # Build specific DC file as FORMAT
+  (3) $0 --outputdir=/tmp/daps2docker-1 [DC_FILE] [FORMAT]
+     # Build specific DC file(s) as FORMAT, but store output in a static directory
+
+Options
+  --version
+      # Show version information
+  --help, -h
+      # Show this help message
+  --help-extended
+      # Show extended help message
+  --debug
+      # Enable debugging mode (very verbose)
+
+If FORMAT is omitted, daps2docker will build: $formats.
+Supported targets: ${!valid_formats[@]}.
+EOF
   if [[ "$1" == "extended" ]]
     then
       echo ""
@@ -72,9 +86,6 @@ app_help() {
       echo
       echo "  Found config files (in this order):"
       echo "  => ${configfilelist[@]}"
-      echo
-      echo "--debug"
-      echo "  Enable debugging mode (very verbose)"
   else
       echo ""
       echo "More? Use $0 --help-extended"
@@ -85,11 +96,14 @@ app_help() {
 #----------------
 # Parse the command line arguments
 
-ARGS=$(getopt -o h -l debug,help,help-extended,outputdir: -n "$ME" -- "$@")
+ARGS=$(getopt -o h -l version,debug,help,help-extended,outputdir: -n "$ME" -- "$@")
 
 eval set -- "$ARGS"
 while true ; do
     case "$1" in
+    --version)
+      echo "daps2docker version $VERSION"
+      ;;
     --debug)
       debug=1
       shift
@@ -115,6 +129,7 @@ load_config_file $gitdir/$GIT_DEFAULT_CONFIGNAME
 # After we've loaded the last config file, we have a list in our
 # variable configfilelist
 
+echo "[INFO] Using daps2docker v$VERSION"
 echo "[INFO] Using conf files: ${configfilelist[@]}"
 
 if [ -z "$outdir" ]; then

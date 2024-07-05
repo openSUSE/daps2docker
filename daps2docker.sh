@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # daps2docker
 # Author: Fabian Baumanis

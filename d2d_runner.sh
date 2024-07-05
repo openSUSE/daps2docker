@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # daps2docker Docker/Podman Helper
 # This script runs all the Docker/Podman related commands, having this in a separate
@@ -6,6 +6,8 @@
 
 me=$(test -L $(realpath $0) && readlink $(realpath $0) || echo $(realpath $0))
 mydir=$(dirname $me)
+
+DATE=$(date "+%Y-%m-%dT%H:%M")
 
 # The DAPS command
 daps="daps"
@@ -33,33 +35,37 @@ fi
 # declare -A valid_formats
 
 app_help() {
-  echo "$0 / Build DAPS documentation in a container (inner script)."
-  echo "Unlike daps2docker itself, this script assumes a few things:"
-  echo "  * [docker] the Docker service is running"
-  echo "  * [docker] the current user is allowed to run Docker"
-  echo "  * there is an empty output directory"
-  echo "In exchange, you can run relatively arbitrary DAPS commands."
-  echo ""
-  echo "Parameters (* mandatory):"
-  echo "  -e=CONTAINER_ENGINE   # *prefered engine to run the containers (docker|podman)"
-  echo "  -i=INPUT_PATH         # *path to input directory"
-  echo "  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)"
-  echo "  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:"
-  echo "${!valid_formats[@]}" | fold -w 54 -s | sed 's/^/                          /'
-  echo "  -g=0/1                # debug on? default 0 (off)"
-  echo "  -v=0/1                # validate before building? default: 1 (on)"
-  echo "  -t=0/1                # run table validation? default: 1 (on)"
-  echo "  -d=PARAMETER_FILE     # file with extra DAPS parameters"
-  echo "  -x=PARAMETER_FILE     # file with extra XSLT processor parameters"
-  echo "  -c=DOCKER_IMAGE       # container image for building"
-  echo "  -u=0/1                # update container image? default: 1 (on)"
-  echo "  -s=USER_NAME          # chown output files to this user"
-  echo "  -b=0/1                # create bigfile. default: 0 (off)"
-  echo "  -j=0/1                # create filelist.json (depends on jq). default: 0 (off)"
-  echo "  -n=0/1                # show extra information? default: 1 (on)"
-  echo "  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc"
-  echo "                        # DC/XML/AsciiDoc files to build from"
+  cat << EOF
+$0 / Build DAPS documentation in a container (inner script).
+
+Unlike daps2docker itself, this script assumes a few things:
+  * [docker] the Docker service is running
+  * [docker] the current user is allowed to run Docker
+  * there is an empty output directory
+In exchange, you can run relatively arbitrary DAPS commands.
+
+Parameters (* mandatory):
+  -e=CONTAINER_ENGINE   # *preferred engine to run the containers (docker|podman)
+  -i=INPUT_PATH         # *path to input directory
+  -o=OUTPUT_PATH        # *path to output directory (directory should be empty)
+  -f=FORMAT1[,FORMAT2]  # formats to build; recognized formats:
+                        # $(printf "%s " "${!valid_formats[@]}")
+  -g=0/1                # debug on? default 0 (off)
+  -v=0/1                # validate before building? default: 1 (on)
+  -t=0/1                # run table validation? default: 1 (on)
+  -d=PARAMETER_FILE     # file with extra DAPS parameters
+  -x=PARAMETER_FILE     # file with extra XSLT processor parameters
+  -c=DOCKER_IMAGE       # container image for building
+  -u=0/1                # update container image? default: 1 (on)
+  -s=USER_NAME          # chown output files to this user
+  -b=0/1                # create bigfile. default: 0 (off)
+  -j=0/1                # create filelist.json (depends on jq). default: 0 (off)
+  -n=0/1                # show extra information? default: 1 (on)
+  DC-FILE xml/MAIN_FILE.xml adoc/MAIN_FILE.adoc
+                        # DC/XML/AsciiDoc files to build from
+EOF
 }
+
 
 
 format_filelists() {
@@ -353,7 +359,18 @@ if [[ ! $("$container_engine" image inspect $containername 2>/dev/null | sed 's/
     error_exit "Container image $containername does not exist."
 fi
 
+
+container_name="$DATE"
+# Remove colons and dsh sign
+# Remove the timezone information if needed (optional)
+container_name="${container_name//:/}"
+container_name="${container_name//-/}"
+container_name="${container_name%.*}"
+container_name="daps-runner-$container_name"
+
+# Example usage in a Docker-friendly name
 # spawn a Daps container
+# TODO: Name the container with --name=$container_name ?
 container_id=$( \
   "$container_engine" run \
     --detach \
@@ -370,29 +387,32 @@ if [ ! $? -eq 0 ]
 fi
 
 # first get the name of the container, then get the ID of the Daps container
-echo "[INFO] Container ID: $container_id"
+echo "[INFO] Container ID: ${container_id:0:12} name=${container_name@Q}"
 
 # copy all directories plus DC-file from the sourcedir
 # except the build/ dir (if present)
 
-for sourcedir in "$dir"/*/
-  do
-    subdir=$(basename "$sourcedir")
-    [[ $subdir = "build" ]] && continue
-    mkdir -p "$localsourcetempdir/$subdir"
-    # NB: we're resolving symlinks here which is important especially for
-    # translated documents
-    cp -rL "$dir/$subdir/." "$localsourcetempdir/$subdir"
-done
-for dc in "$dir"/DC-*
-  do
-    if [[ -f "$dc" ]]
-      then
-        # NB: we're resolving symlinks here which is important especially for
-        # translated documents
-        cp -L "$dc" "$localsourcetempdir"
-    fi
-done
+# TODO: Replace for loops with rsync
+echo "[DEBUG] Syncing content to directory $localtempdir/"
+rsync -aL --exclude=build/ $dir/ $localsourcetempdir/
+# for sourcedir in "$dir"/*/
+#   do
+#     subdir=$(basename "$sourcedir")
+#     [[ $subdir = "build" ]] && continue
+#     mkdir -p "$localsourcetempdir/$subdir"
+#     # NB: we're resolving symlinks here which is important especially for
+#     # translated documents
+#     cp -rL "$dir/$subdir/." "$localsourcetempdir/$subdir"
+# done
+# for dc in "$dir"/DC-*
+#   do
+#     if [[ -f "$dc" ]]
+#       then
+#         # NB: we're resolving symlinks here which is important especially for
+#         # translated documents
+#         cp -L "$dc" "$localsourcetempdir"
+#     fi
+# done
 
 if [[ $info -eq 1 ]]
   then
@@ -421,7 +441,9 @@ daps_version_table_min=3.3.1
 daps_version=$("$container_engine" exec "$container_id" rpm -q --qf '%{VERSION}' daps)
 [[ "$validatetables" -eq 0 && \
   $(echo -e "$daps_version_table_min\n$daps_version" | sort --version-sort | head -1) = "$daps_version_table_min" ]] && \
-  table_valid_param='--not-validate-tables'
+  # TODO: We need to add it to the configuration file
+  # table_valid_param='--extended-validation=all'
+  table_valid_param=''
 
 # build output formats
 filelist=''
@@ -435,33 +457,35 @@ for dc_file in $dcfiles
     # This should be in there anyway, we just write it again just in case the
     # container author has forgotten it.
     echo 'DOCBOOK5_RNG_URI="https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc"' > $localtempdir/d2d-dapsrc-geekodoc
-    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db51
+    echo 'DOCBOOK5_RNG_URI="file:///usr/share/xml/docbook/schema/rng/5.2/docbookxi.rng"' > $localtempdir/d2d-dapsrc-db52
 
     validation=
     validation_code=0
-    if [[ "$autovalidate" -ne 0 ]]
-      then
+    if [[ "$autovalidate" -ne 0 ]]; then
       "$container_engine" cp $localtempdir/d2d-dapsrc-geekodoc $container_id:/root/.config/daps/dapsrc
 
-      validation=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
+      echo "[DEBUG] Validate inside container $container_engine exec $container_id $daps $dm $containersourcetempdir/$dc_file validate $table_valid_param"
+      validation=$("$container_engine" exec "$container_id" "$daps" "$dm" "$containersourcetempdir/$dc_file" validate "$table_valid_param" 2>&1)
       validation_code=$?
+      echo "[DEBUG] Validation for $dc_file result was $validation_code"
 
       validation_attempts=1
-        if [[ "$validation_code" -gt 0 ]]
-          then
+      if [[ "$validation_code" -gt 0 ]]; then
             # Try again but with the DocBook upstream
-            "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+            echo "[DEBUG] Use DocBook 5.x for validation with daps"
+            "$container_engine" cp $localtempdir/d2d-dapsrc-db52 $container_id:/root/.config/daps/dapsrc
             validation=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file validate "$table_valid_param" 2>&1)
             validation_code=$?
             validation_attempts=2
-        fi
-      else
+      fi
+    else
         # Make sure we are not using GeekoDoc in this case, to provoke lowest
         # number of build failures
-        "$container_engine" cp $localtempdir/d2d-dapsrc-db51 $container_id:/root/.config/daps/dapsrc
+        echo "[DEBUG] Use DocBook 5.x configuration for validation "
+        "$container_engine" cp $localtempdir/d2d-dapsrc-db52 $container_id:/root/.config/daps/dapsrc
     fi
-    if [[ "$validation_code" -gt 0 ]]
-      then
+    echo "[DEBUG] Checking validation result..."
+    if [[ "$validation_code" -gt 0 ]]; then
         echo -e "$validation"
         clean_temp
         json_line "$dc_file" "validate" "failed"
@@ -470,8 +494,7 @@ for dc_file in $dcfiles
       else
         json_line "$dc_file" "validate" "succeeded"
         [[ $validation_attempts -gt 1 ]] && echo "$dc_file has validation issues when trying to validate with GeekoDoc. It validates with DocBook though. Results might not look ideal."
-        for format in $formats
-          do
+        for format in $formats; do
             format_subcommand="$format"
             [[ $format == 'single-html' ]] && format_subcommand='html --single'
             dapsparameters=
@@ -481,8 +504,7 @@ for dc_file in $dcfiles
             echo -e "$daps $dm $containersourcetempdir/$dc_file $format_subcommand $dapsparameters $xsltparameters"
             output=$("$container_engine" exec $container_id $daps $dm $containersourcetempdir/$dc_file $format_subcommand "$table_valid_param" $dapsparameters $xsltparameters)
             build_code=$?
-            if [[ "$build_code" -gt 0 ]]
-              then
+            if [[ "$build_code" -gt 0 ]]; then
                 clean_temp
                 json_line "$dc_file" "$format" "failed"
                 format_filelists
@@ -500,11 +522,11 @@ for dc_file in $dcfiles
 
                 # Let's just assume that we can always build a bigfile if we can
                 # build regular output.
-                if [[ $createbigfile -eq 1 ]]
-                  then
+                if [[ $createbigfile -eq 1 ]]; then
                     output=$($container_engine exec $container_id $daps $dm $containersourcetempdir/$dc_file bigfile "$table_valid_param")
                     output_path=$(echo "$output" | sed -r -e "s#^$containersourcetempdir/build#$outdir#")
                     filelist+="$output_path "
+                    echo "[DEBUG] $dc_file bigfile succeeded $output_path"
                     json_line "$dc_file" "bigfile" "succeeded" "$output_path"
                 fi
             fi
@@ -522,3 +544,5 @@ format_filelists
 # clean up
 clean_temp
 stop_container
+
+exit 0

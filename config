@@ -49,4 +49,4 @@ formats="validate,bigfile,html,pdf"
 container_engine="docker"
 
 # The default container to use
-containername="registry.opensuse.org/documentation/containers/containers/opensuse-daps-toolchain:latest"
+containername="registry.opensuse.org/documentation/containers/15.6/opensuse-daps-toolchain:latest"

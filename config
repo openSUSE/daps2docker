@@ -37,6 +37,7 @@ valid_formats=(\
   ["text"]="--ignore-styleroot --norefcheck" \
   ["webhelp"]="--draft --norefcheck --nosearch --nostatic --remarks" \
   ["validate"]="" \
+  ["metadata"]="" \
   )
 
 # The formats to build

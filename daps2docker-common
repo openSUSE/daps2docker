@@ -9,6 +9,7 @@ SYSTEM_CONFIGDIR="/etc/daps2docker"
 USER_CONFIGDIR="$HOME/.config/daps2docker"
 DEFAULT_CONFIGNAME="config"
 GIT_DEFAULT_CONFIGNAME=".daps2docker.conf"
+META_PREFIX=".meta"
 
 # Declare some global arrays
 declare -A valid_formats
@@ -17,6 +18,13 @@ index=0
 
 # --- Functions
 #
+is_bool() {
+    # Check if the value is a boolean
+    # $1 - value to check for boolness
+    [[ "$1" == 0 || "$1" == 1 ]] && echo "isbool"
+}
+
+
 load_config_file() {
     # $1 the config file to be loaded
     #
@@ -29,6 +37,7 @@ load_config_file() {
     fi
 }
 
+
 get_toplevel_gitdir() {
     # $1 the directory to check if it's a local Git repo
     local DIR=${1:-.}
@@ -38,7 +47,68 @@ get_toplevel_gitdir() {
     git -C ${DIR} rev-parse --show-toplevel
 }
 
+
 is_git_dir() {
+    local dir=${1:-.}
     # $1 the directory to check if it's a local Git repo
-    get_toplevel_gitdir ${1:-.} 1>/dev/null 2>&1; return $?
+    get_toplevel_gitdir ${dir} 1>/dev/null 2>&1; return $?
+}
+
+
+get_user_id() {
+    # Get the user id
+    if [ -n "$UID" ]; then
+        echo "$UID"
+    else
+        id -u
+    fi
+}
+
+get_group_id() {
+    # Get the group id
+    if [ -n "$GID" ]; then
+        echo "$GID"
+    else
+        id -g
+    fi
+}
+
+get_user_group_id() {
+    # Get the user and group id
+    local USER_ID=$(get_user_id)
+    local GROUP_ID=$(get_group_id)
+    echo "${USER_ID}:${GROUP_ID}"
+}
+
+log_message() {
+    # $1 - the message to log
+    # $2 - the log level
+    local message=$1
+    local loglevel=${2:-"INFO"}
+    echo -e "[$loglevel] $message"
+}
+
+log_debug() {
+    # $1 - the message to log
+    log_message "$1" "DEBUG"
+}
+
+log_info() {
+    # $1 - the message to log
+    log_message "$1" "INFO"
+}
+
+log_warn() {
+    # $1 - the message to log
+    log_message "$1" "WARN"
+}
+
+log_error() {
+    # $1 - the message to log
+    log_message "$1" "ERROR"
+}
+
+log_critical() {
+    # $1 - the message to log
+    log_message "$1" "CRITICAL"
 }

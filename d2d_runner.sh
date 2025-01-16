@@ -46,7 +46,8 @@ output_rpmpackages_in_container() {
       docbook-xsl-stylesheets docbook5-xsl-stylesheets \
       suse-xsl-stylesheets suse-xsl-stylesheets-sbp hpe-xsl-stylesheets \
       libxml2-tools libxslt-tools jing \
-      google-noto-sans-{jp,kr,sc,tc}-{regular,bold}-fonts
+      google-noto-sans-{jp,kr,sc,tc}-{regular,bold}-fonts \
+      sil-charis-fonts gnu-free-fonts google-opensans-fonts dejavu-fonts google-poppins-fonts
 
     # We don't rely here on a specific name (like ruby2.5-rubygem-asciidoctor)
     # which can change in the future.

@@ -103,6 +103,7 @@ while true ; do
     case "$1" in
     --version)
       echo "daps2docker version $VERSION"
+      exit 0
       ;;
     --debug)
       debug=1

@@ -7,7 +7,7 @@
 #
 
 # project version number
-VERSION       := 0.26
+VERSION       := 0.27
 
 ifndef PREFIX_BIN
   PREFIX := /usr/bin

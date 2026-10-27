@@ -526,6 +526,11 @@ mkdir "$localsourcetempdir"
 containertempdir=/daps_temp-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c10)
 containersourcetempdir="$containertempdir/source"
 
+source_root=$(get_toplevel_gitdir "$dir" 2>/dev/null) || source_root="$dir"
+source_subdir=$(realpath --relative-to="$source_root" "$dir")
+localsourcetempdir="$localsourcetempdir/$source_subdir"
+containersourcetempdir="$containersourcetempdir/$source_subdir"
+
 [[ $autoupdate -eq 1 ]] && "$ENGINE" pull $containername
 
 # Enable debugging with -g=1
@@ -574,7 +579,11 @@ log_info "Container ID: ${container_id:0:12} name=${container_name@Q}"
 # except the build/ dir (if present)
 
 log_debug "Syncing content to host directory $localtempdir/"
-rsync -aL --exclude=build/ $dir/ $localsourcetempdir/
+if ! rsync -aL --exclude=build/ --exclude=.git --exclude=.venv/ \
+  "$source_root/" "$localtempdir/source/"; then
+  clean_temp
+  error_exit "Failed to stage documentation sources."
+fi
 
 if [[ $info -eq 1 ]]; then
     output_rpmpackages_in_container "$container_id"
@@ -612,7 +621,7 @@ for dc_file in $dcfiles
       cp_container $localtempdir/d2d-dapsrc-geekodoc  /root/.config/daps/dapsrc
 
       log_debug "Validate inside container $ENGINE exec ${container_id:0:10} $daps $dm $containersourcetempdir/$dc_file validate $table_valid_param"
-      validation=$(exec_container "$daps" "$dm" "$containersourcetempdir/$dc_file" validate "$table_valid_param" 2>&1)
+      validation=$(exec_container $daps "$dm" "$containersourcetempdir/$dc_file" validate "$table_valid_param" 2>&1)
       validation_code=$?
       log_debug "Validation for $dc_file result was $validation_code"
 

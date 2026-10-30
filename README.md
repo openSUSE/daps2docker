@@ -83,8 +83,10 @@ the DC file's directory. For example,
 `./daps2docker.sh /PATH/TO/doc-modular/en/DC-HA-introduction html`
 can use sibling directories such as `doc-modular/images` through `../images`.
 Outside Git checkouts, only the selected input directory is staged. Existing
-`build/` directories, `.venv/` environments, and `.git` metadata are excluded in
-both cases. A source transfer failure stops the build.
+`build/` directories, `.venv/` environments, `.git` metadata, and `.agents`
+entries are excluded in both cases. Excluding `.agents` also skips dangling
+symlinks to uninitialized submodules. Other symlinks are dereferenced, so their
+targets must exist. A source transfer failure stops the build.
 
 When it is done, the script will tell you where it copied the output documents.
 Take a look!

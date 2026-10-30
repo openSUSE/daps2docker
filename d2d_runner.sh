@@ -579,7 +579,7 @@ log_info "Container ID: ${container_id:0:12} name=${container_name@Q}"
 # except the build/ dir (if present)
 
 log_debug "Syncing content to host directory $localtempdir/"
-if ! rsync -aL --exclude=build/ --exclude=.git --exclude=.venv/ \
+if ! rsync -aL --exclude=build/ --exclude=.git --exclude=.venv/ --exclude=.agents \
   "$source_root/" "$localtempdir/source/"; then
   clean_temp
   error_exit "Failed to stage documentation sources."
